@@ -14,6 +14,11 @@ export class ProtocolListenerApp {
     this.setupEventHandlers();
   }
 
+  // Expose the underlying event listener for custom handlers
+  getEventListener(): ProtocolEventListener {
+    return this.eventListener;
+  }
+
   private setupEventHandlers(): void {
     // Handle standardized events from all protocols
     this.eventListener.on('standardizedEvent', (event: StandardizedEvent) => {
@@ -138,8 +143,9 @@ export class ProtocolListenerApp {
 // Example usage and configuration
 export function createEthereumListener(): ProtocolListenerApp {
   const config: EventListenerConfig = {
-    rpcUrl: process.env.ETHEREUM_RPC_URL || 'https://eth-mainnet.g.alchemy.com/v2/demo',
-    wsUrl: process.env.ETHEREUM_WS_URL || 'wss://eth-mainnet.g.alchemy.com/v2/demo',
+    // Use your Alchemy RPC endpoints
+    rpcUrl: 'https://eth-mainnet.g.alchemy.com/v2/xNtVh1r2f3ZC8NrB2O1qX',
+    wsUrl: 'wss://eth-mainnet.g.alchemy.com/v2/xNtVh1r2f3ZC8NrB2O1qX',
     chainId: 1, // Ethereum Mainnet
     protocols: ['uniswap-v2', 'uniswap-v3'] // Listen to both Uniswap V2 and V3
   };
@@ -149,10 +155,33 @@ export function createEthereumListener(): ProtocolListenerApp {
 
 export function createBSCListener(): ProtocolListenerApp {
   const config: EventListenerConfig = {
-    rpcUrl: process.env.BSC_RPC_URL || 'https://bsc-dataseed.binance.org/',
-    wsUrl: process.env.BSC_WS_URL || 'wss://bsc-ws-node.nariox.org:443/ws',
+    rpcUrl: 'https://bnb-mainnet.g.alchemy.com/v2/xNtVh1r2f3ZC8NrB2O1qX',
+    wsUrl: 'wss://bnb-mainnet.g.alchemy.com/v2/xNtVh1r2f3ZC8NrB2O1qX',
     chainId: 56, // BSC Mainnet
     protocols: ['pancakeswap-v2']
+  };
+
+  return new ProtocolListenerApp(config);
+}
+
+// Alternative function with custom RPC configuration
+export function createEthereumListenerWithConfig(customConfig: Partial<EventListenerConfig>): ProtocolListenerApp {
+  const config: EventListenerConfig = {
+    rpcUrl: customConfig.rpcUrl || 'https://eth-mainnet.g.alchemy.com/v2/xNtVh1r2f3ZC8NrB2O1qX',
+    wsUrl: customConfig.wsUrl || 'wss://eth-mainnet.g.alchemy.com/v2/xNtVh1r2f3ZC8NrB2O1qX',
+    chainId: customConfig.chainId || 1,
+    protocols: customConfig.protocols || ['uniswap-v2', 'uniswap-v3']
+  };
+
+  return new ProtocolListenerApp(config);
+}
+
+export function createBSCListenerWithConfig(customConfig: Partial<EventListenerConfig>): ProtocolListenerApp {
+  const config: EventListenerConfig = {
+    rpcUrl: customConfig.rpcUrl || 'https://bnb-mainnet.g.alchemy.com/v2/xNtVh1r2f3ZC8NrB2O1qX',
+    wsUrl: customConfig.wsUrl || 'wss://bnb-mainnet.g.alchemy.com/v2/xNtVh1r2f3ZC8NrB2O1qX',
+    chainId: customConfig.chainId || 56,
+    protocols: customConfig.protocols || ['pancakeswap-v2']
   };
 
   return new ProtocolListenerApp(config);

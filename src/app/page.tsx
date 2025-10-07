@@ -1,74 +1,126 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { createEthereumListener, createBSCListener, createEthereumListenerWithConfig, createBSCListenerWithConfig } from './protocol-listener';
+import { StandardizedEvent, FactoryEvent } from '../types/schemas';
 
 export default function Home() {
   const [isListening, setIsListening] = useState(false);
-  const [events, setEvents] = useState<any[]>([]);
+  const [events, setEvents] = useState<StandardizedEvent[]>([]);
   const [pools, setPools] = useState<any[]>([]);
+  const [ethereumListener, setEthereumListener] = useState<any>(null);
+  const [bscListener, setBscListener] = useState<any>(null);
+  const [showConfig, setShowConfig] = useState(false);
+  const [customRpc, setCustomRpc] = useState({
+    ethereumRpc: '',
+    ethereumWs: '',
+    bscRpc: '',
+    bscWs: ''
+  });
 
   const startListener = async () => {
     try {
       setIsListening(true);
-      console.log('Starting protocol event listener...');
-      // In a real implementation, this would start the actual listener
-      // For demo purposes, we'll simulate events
-      simulateEvents();
+      console.log('Starting REAL blockchain event listeners...');
+      
+      // Create Ethereum listener (Uniswap V2 & V3)
+      const ethListener = customRpc.ethereumRpc ? 
+        createEthereumListenerWithConfig({
+          rpcUrl: customRpc.ethereumRpc,
+          wsUrl: customRpc.ethereumWs
+        }) : 
+        createEthereumListener();
+      setEthereumListener(ethListener);
+      
+      // Create BSC listener (PancakeSwap V2)
+      const bscListener = customRpc.bscRpc ? 
+        createBSCListenerWithConfig({
+          rpcUrl: customRpc.bscRpc,
+          wsUrl: customRpc.bscWs
+        }) : 
+        createBSCListener();
+      setBscListener(bscListener);
+      
+      // Get the underlying event listeners
+      const ethEventListener = ethListener.getEventListener();
+      const bscEventListener = bscListener.getEventListener();
+      
+      // Set up event handlers for Ethereum
+      ethEventListener.on('standardizedEvent', (event: StandardizedEvent) => {
+        console.log('🔵 Ethereum Event:', event);
+        setEvents(prev => [event, ...prev.slice(0, 19)]); // Keep last 20 events
+      });
+      
+      ethEventListener.on('factoryEvent', (event: FactoryEvent) => {
+        console.log('🏭 New Ethereum Pool:', event);
+        setPools(prev => [...prev, event]);
+      });
+      
+      // Add error handler for Ethereum
+      ethEventListener.on('error', (error: any) => {
+        console.error('🔴 Ethereum Listener Error:', error);
+      });
+      
+      // Set up event handlers for BSC
+      bscEventListener.on('standardizedEvent', (event: StandardizedEvent) => {
+        console.log('🟡 BSC Event:', event);
+        setEvents(prev => [event, ...prev.slice(0, 19)]); // Keep last 20 events
+      });
+      
+      bscEventListener.on('factoryEvent', (event: FactoryEvent) => {
+        console.log('🏭 New BSC Pool:', event);
+        setPools(prev => [...prev, event]);
+      });
+      
+      // Add error handler for BSC
+      bscEventListener.on('error', (error: any) => {
+        console.error('🔴 BSC Listener Error:', error);
+      });
+      
+      // Start both listeners
+      await Promise.all([
+        ethListener.start(),
+        bscListener.start()
+      ]);
+      
+      console.log('✅ Real blockchain listeners started!');
+      
     } catch (error) {
-      console.error('Failed to start listener:', error);
+      console.error('Failed to start real listeners:', error);
       setIsListening(false);
     }
   };
 
-  const stopListener = () => {
-    setIsListening(false);
-    console.log('Stopped protocol event listener');
-  };
-
-  const simulateEvents = () => {
-    const eventTypes = ['swap', 'mint', 'burn', 'sync'];
-    const protocols = ['uniswap-v2', 'uniswap-v3', 'pancakeswap-v2'];
-    const tokens = [
-      { symbol: 'WETH', name: 'Wrapped Ethereum' },
-      { symbol: 'USDC', name: 'USD Coin' },
-      { symbol: 'USDT', name: 'Tether USD' },
-      { symbol: 'DAI', name: 'Dai Stablecoin' }
-    ];
-
-    const interval = setInterval(() => {
-      if (!isListening) {
-        clearInterval(interval);
-        return;
+  const stopListener = async () => {
+    try {
+      setIsListening(false);
+      console.log('Stopping real blockchain listeners...');
+      
+      if (ethereumListener) {
+        await ethereumListener.stop();
       }
-
-      const randomEvent = {
-        id: Math.random().toString(36).substr(2, 9),
-        protocol: protocols[Math.floor(Math.random() * protocols.length)],
-        eventType: eventTypes[Math.floor(Math.random() * eventTypes.length)],
-        timestamp: Date.now(),
-        blockNumber: Math.floor(Math.random() * 1000000) + 18000000,
-        transactionHash: '0x' + Math.random().toString(16).substr(2, 64),
-        poolAddress: '0x' + Math.random().toString(16).substr(2, 40),
-        token0: tokens[Math.floor(Math.random() * tokens.length)],
-        token1: tokens[Math.floor(Math.random() * tokens.length)],
-        data: {
-          amount0: (Math.random() * 1000).toFixed(2),
-          amount1: (Math.random() * 1000).toFixed(2)
-        }
-      };
-
-      setEvents(prev => [randomEvent, ...prev.slice(0, 9)]);
-    }, 2000);
-
-    return () => clearInterval(interval);
+      
+      if (bscListener) {
+        await bscListener.stop();
+      }
+      
+      console.log('✅ Real blockchain listeners stopped');
+    } catch (error) {
+      console.error('Error stopping listeners:', error);
+    }
   };
 
+  // Cleanup on unmount
   useEffect(() => {
-    if (isListening) {
-      const cleanup = simulateEvents();
-      return cleanup;
-    }
-  }, [isListening]);
+    return () => {
+      if (ethereumListener) {
+        ethereumListener.stop();
+      }
+      if (bscListener) {
+        bscListener.stop();
+      }
+    };
+  }, [ethereumListener, bscListener]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-8">
@@ -91,7 +143,7 @@ export default function Home() {
                   : 'bg-green-600 hover:bg-green-700 text-white'
               }`}
             >
-              {isListening ? 'Listening...' : 'Start Listener'}
+              {isListening ? 'Connected to Blockchain' : 'Connect to Blockchain'}
             </button>
             
             <button
@@ -103,9 +155,68 @@ export default function Home() {
                   : 'bg-red-600 hover:bg-red-700 text-white'
               }`}
             >
-              Stop Listener
+              Disconnect
+            </button>
+            
+            <button
+              onClick={() => setShowConfig(!showConfig)}
+              className="px-6 py-3 rounded-lg font-semibold transition-colors bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              {showConfig ? 'Hide Config' : 'RPC Config'}
             </button>
           </div>
+          
+          {showConfig && (
+            <div className="mt-8 bg-white rounded-xl shadow-lg p-6 max-w-4xl mx-auto">
+              <h3 className="text-lg font-bold text-gray-900 mb-4">RPC Configuration</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Ethereum RPC URL</label>
+                  <input
+                    type="text"
+                    value={customRpc.ethereumRpc}
+                    onChange={(e) => setCustomRpc(prev => ({ ...prev, ethereumRpc: e.target.value }))}
+                    placeholder="https://eth-mainnet.g.alchemy.com/v2/YOUR_API_KEY"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+        </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Ethereum WebSocket URL</label>
+                  <input
+                    type="text"
+                    value={customRpc.ethereumWs}
+                    onChange={(e) => setCustomRpc(prev => ({ ...prev, ethereumWs: e.target.value }))}
+                    placeholder="wss://eth-mainnet.g.alchemy.com/v2/YOUR_API_KEY"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">BSC RPC URL</label>
+                  <input
+                    type="text"
+                    value={customRpc.bscRpc}
+                    onChange={(e) => setCustomRpc(prev => ({ ...prev, bscRpc: e.target.value }))}
+                    placeholder="https://bsc-dataseed.binance.org/"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">BSC WebSocket URL</label>
+                  <input
+                    type="text"
+                    value={customRpc.bscWs}
+                    onChange={(e) => setCustomRpc(prev => ({ ...prev, bscWs: e.target.value }))}
+                    placeholder="wss://bsc-ws-node.nariox.org:443/ws"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+              </div>
+              <div className="mt-4 text-sm text-gray-600">
+                <p><strong>Default RPCs:</strong> Using Ankr (Ethereum) and Binance (BSC) free endpoints</p>
+                <p><strong>For better performance:</strong> Use paid RPC providers like Alchemy, Infura, or QuickNode</p>
+              </div>
+            </div>
+          )}
         </header>
 
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
@@ -124,7 +235,7 @@ export default function Home() {
               <div className="space-y-3 max-h-64 overflow-y-auto">
                 {events.filter(event => event.protocol === 'uniswap-v2').length === 0 ? (
                   <p className="text-gray-500 text-center py-4 text-sm">
-                    {isListening ? 'Waiting for Uniswap V2 events...' : 'Start the listener to see events'}
+                    {isListening ? 'Waiting for real Uniswap V2 events...' : 'Start the listener to see real blockchain events'}
                   </p>
                 ) : (
                   events.filter(event => event.protocol === 'uniswap-v2').slice(0, 5).map((event, index) => (
@@ -143,9 +254,26 @@ export default function Home() {
                           <span>↔</span>
                           <span className="font-medium">{event.token1.symbol}</span>
                         </div>
-                        <div className="text-xs text-gray-500 mt-1">
-                          {event.data.amount0} {event.token0.symbol} / {event.data.amount1} {event.token1.symbol}
-                        </div>
+                        {event.data.type === 'swap' && (
+                          <div className="text-xs text-gray-500 mt-1">
+                            {event.data.amount0In} {event.token0.symbol} → {event.data.amount1Out} {event.token1.symbol}
+                          </div>
+                        )}
+                        {event.data.type === 'mint' && (
+                          <div className="text-xs text-gray-500 mt-1">
+                            +{event.data.amount0} {event.token0.symbol} + {event.data.amount1} {event.token1.symbol}
+                          </div>
+                        )}
+                        {event.data.type === 'burn' && (
+                          <div className="text-xs text-gray-500 mt-1">
+                            -{event.data.amount0} {event.token0.symbol} - {event.data.amount1} {event.token1.symbol}
+                          </div>
+                        )}
+                        {event.data.type === 'sync' && (
+                          <div className="text-xs text-gray-500 mt-1">
+                            Reserves: {event.data.reserve0} / {event.data.reserve1}
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))
@@ -166,7 +294,7 @@ export default function Home() {
               <div className="space-y-3 max-h-64 overflow-y-auto">
                 {events.filter(event => event.protocol === 'uniswap-v3').length === 0 ? (
                   <p className="text-gray-500 text-center py-4 text-sm">
-                    {isListening ? 'Waiting for Uniswap V3 events...' : 'Start the listener to see events'}
+                    {isListening ? 'Waiting for real Uniswap V3 events...' : 'Start the listener to see real blockchain events'}
                   </p>
                 ) : (
                   events.filter(event => event.protocol === 'uniswap-v3').slice(0, 5).map((event, index) => (
@@ -185,9 +313,26 @@ export default function Home() {
                           <span>↔</span>
                           <span className="font-medium">{event.token1.symbol}</span>
                         </div>
-                        <div className="text-xs text-gray-500 mt-1">
-                          {event.data.amount0} {event.token0.symbol} / {event.data.amount1} {event.token1.symbol}
-                        </div>
+                        {event.data.type === 'swap' && (
+                          <div className="text-xs text-gray-500 mt-1">
+                            {event.data.amount0In} {event.token0.symbol} → {event.data.amount1Out} {event.token1.symbol}
+                          </div>
+                        )}
+                        {event.data.type === 'mint' && (
+                          <div className="text-xs text-gray-500 mt-1">
+                            +{event.data.amount0} {event.token0.symbol} + {event.data.amount1} {event.token1.symbol}
+                          </div>
+                        )}
+                        {event.data.type === 'burn' && (
+                          <div className="text-xs text-gray-500 mt-1">
+                            -{event.data.amount0} {event.token0.symbol} - {event.data.amount1} {event.token1.symbol}
+                          </div>
+                        )}
+                        {event.data.type === 'initialize' && (
+                          <div className="text-xs text-gray-500 mt-1">
+                            Price: {event.data.sqrtPriceX96} Tick: {event.data.tick}
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))
@@ -208,7 +353,7 @@ export default function Home() {
               <div className="space-y-3 max-h-64 overflow-y-auto">
                 {events.filter(event => event.protocol === 'pancakeswap-v2').length === 0 ? (
                   <p className="text-gray-500 text-center py-4 text-sm">
-                    {isListening ? 'Waiting for PancakeSwap V2 events...' : 'Start the listener to see events'}
+                    {isListening ? 'Waiting for real PancakeSwap V2 events...' : 'Start the listener to see real blockchain events'}
                   </p>
                 ) : (
                   events.filter(event => event.protocol === 'pancakeswap-v2').slice(0, 5).map((event, index) => (
@@ -227,9 +372,26 @@ export default function Home() {
                           <span>↔</span>
                           <span className="font-medium">{event.token1.symbol}</span>
                         </div>
-                        <div className="text-xs text-gray-500 mt-1">
-                          {event.data.amount0} {event.token0.symbol} / {event.data.amount1} {event.token1.symbol}
-                        </div>
+                        {event.data.type === 'swap' && (
+                          <div className="text-xs text-gray-500 mt-1">
+                            {event.data.amount0In} {event.token0.symbol} → {event.data.amount1Out} {event.token1.symbol}
+                          </div>
+                        )}
+                        {event.data.type === 'mint' && (
+                          <div className="text-xs text-gray-500 mt-1">
+                            +{event.data.amount0} {event.token0.symbol} + {event.data.amount1} {event.token1.symbol}
+                          </div>
+                        )}
+                        {event.data.type === 'burn' && (
+                          <div className="text-xs text-gray-500 mt-1">
+                            -{event.data.amount0} {event.token0.symbol} - {event.data.amount1} {event.token1.symbol}
+                          </div>
+                        )}
+                        {event.data.type === 'sync' && (
+                          <div className="text-xs text-gray-500 mt-1">
+                            Reserves: {event.data.reserve0} / {event.data.reserve1}
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))

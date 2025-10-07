@@ -1,7 +1,15 @@
 import { ethers } from 'ethers';
 import { EventEmitter } from 'events';
-import { StandardizedEvent, PoolInfo, FactoryEvent, ProtocolType } from '../types/schemas';
-import { CONTRACT_ADDRESSES } from '../types/contracts';
+import { StandardizedEvent, PoolInfo, FactoryEvent, ProtocolType, TokenInfo } from '../types/schemas';
+import { 
+  CONTRACT_ADDRESSES, 
+  UNISWAP_V2_FACTORY_ABI, 
+  UNISWAP_V2_PAIR_ABI,
+  UNISWAP_V3_FACTORY_ABI, 
+  UNISWAP_V3_POOL_ABI,
+  PANCAKESWAP_V2_FACTORY_ABI,
+  PANCAKESWAP_V2_PAIR_ABI
+} from '../types/contracts';
 
 export interface EventListenerConfig {
   rpcUrl: string;
@@ -16,6 +24,7 @@ export class ProtocolEventListener extends EventEmitter {
   private factoryListeners: Map<string, ethers.Contract> = new Map();
   private poolListeners: Map<string, ethers.Contract> = new Map();
   private knownPools: Map<string, PoolInfo> = new Map();
+  private tokenCache: Map<string, TokenInfo> = new Map();
   private isListening = false;
 
   constructor(private config: EventListenerConfig) {
@@ -74,7 +83,7 @@ export class ProtocolEventListener extends EventEmitter {
     const chainConfig = this.getChainConfig();
     
     for (const protocol of this.config.protocols) {
-      const protocolConfig = chainConfig[protocol];
+      const protocolConfig = (chainConfig as any)[protocol];
       if (!protocolConfig) {
         console.warn(`Protocol ${protocol} not supported on chain ${this.config.chainId}`);
         continue;
@@ -118,14 +127,18 @@ export class ProtocolEventListener extends EventEmitter {
   ): Promise<void> {
     console.log(`New pair created: ${protocol} - ${pairAddress}`);
     
+    // Extract event data properly
+    const txHash = event.transactionHash || event.hash || `tx-${Date.now()}`;
+    const blockNumber = event.blockNumber || event.block || 0;
+    
     const factoryEvent: FactoryEvent = {
       protocol,
       eventType: 'pair_created',
       token0,
       token1,
       pairAddress,
-      blockNumber: event.blockNumber,
-      transactionHash: event.transactionHash
+      blockNumber: blockNumber,
+      transactionHash: txHash
     };
 
     this.emit('factoryEvent', factoryEvent);
@@ -145,6 +158,10 @@ export class ProtocolEventListener extends EventEmitter {
   ): Promise<void> {
     console.log(`New pool created: ${protocol} - ${poolAddress}`);
     
+    // Extract event data properly
+    const txHash = event.transactionHash || event.hash || `tx-${Date.now()}`;
+    const blockNumber = event.blockNumber || event.block || 0;
+    
     const factoryEvent: FactoryEvent = {
       protocol,
       eventType: 'pool_created',
@@ -153,8 +170,8 @@ export class ProtocolEventListener extends EventEmitter {
       pairAddress: poolAddress,
       fee,
       tickSpacing,
-      blockNumber: event.blockNumber,
-      transactionHash: event.transactionHash
+      blockNumber: blockNumber,
+      transactionHash: txHash
     };
 
     this.emit('factoryEvent', factoryEvent);
@@ -265,15 +282,20 @@ export class ProtocolEventListener extends EventEmitter {
     to: string,
     event: any
   ): Promise<void> {
+    // Extract event data properly - ethers.js events have different structure
+    const txHash = event.transactionHash || event.hash || event.tx?.hash || `tx-${Date.now()}`;
+    const logIndex = event.logIndex || event.index || event.log?.index || Date.now();
+    const blockNumber = event.blockNumber || event.block || event.blockNumber || event.log?.blockNumber || 0;
+    
     const standardizedEvent: StandardizedEvent = {
-      id: `${event.transactionHash}-${event.logIndex}`,
+      id: `${txHash}-${logIndex}-swap`,
       protocol: poolInfo.protocol,
       version: poolInfo.version,
       eventType: 'swap',
       timestamp: Date.now(),
-      blockNumber: event.blockNumber,
-      transactionHash: event.transactionHash,
-      logIndex: event.logIndex,
+      blockNumber: blockNumber,
+      transactionHash: txHash,
+      logIndex: logIndex,
       poolAddress: poolInfo.address,
       token0: poolInfo.token0,
       token1: poolInfo.token1,
@@ -298,15 +320,20 @@ export class ProtocolEventListener extends EventEmitter {
     amount1: string,
     event: any
   ): Promise<void> {
+    // Extract event data properly - ethers.js events have different structure
+    const txHash = event.transactionHash || event.hash || event.tx?.hash || `tx-${Date.now()}`;
+    const logIndex = event.logIndex || event.index || event.log?.index || Date.now();
+    const blockNumber = event.blockNumber || event.block || event.log?.blockNumber || 0;
+    
     const standardizedEvent: StandardizedEvent = {
-      id: `${event.transactionHash}-${event.logIndex}`,
+      id: `${txHash}-${logIndex}-mint`,
       protocol: poolInfo.protocol,
       version: poolInfo.version,
       eventType: 'mint',
       timestamp: Date.now(),
-      blockNumber: event.blockNumber,
-      transactionHash: event.transactionHash,
-      logIndex: event.logIndex,
+      blockNumber: blockNumber,
+      transactionHash: txHash,
+      logIndex: logIndex,
       poolAddress: poolInfo.address,
       token0: poolInfo.token0,
       token1: poolInfo.token1,
@@ -331,15 +358,20 @@ export class ProtocolEventListener extends EventEmitter {
     to: string,
     event: any
   ): Promise<void> {
+    // Extract event data properly - ethers.js events have different structure
+    const txHash = event.transactionHash || event.hash || event.tx?.hash || `tx-${Date.now()}`;
+    const logIndex = event.logIndex || event.index || event.log?.index || Date.now();
+    const blockNumber = event.blockNumber || event.block || event.log?.blockNumber || 0;
+    
     const standardizedEvent: StandardizedEvent = {
-      id: `${event.transactionHash}-${event.logIndex}`,
+      id: `${txHash}-${logIndex}-burn`,
       protocol: poolInfo.protocol,
       version: poolInfo.version,
       eventType: 'burn',
       timestamp: Date.now(),
-      blockNumber: event.blockNumber,
-      transactionHash: event.transactionHash,
-      logIndex: event.logIndex,
+      blockNumber: blockNumber,
+      transactionHash: txHash,
+      logIndex: logIndex,
       poolAddress: poolInfo.address,
       token0: poolInfo.token0,
       token1: poolInfo.token1,
@@ -362,15 +394,20 @@ export class ProtocolEventListener extends EventEmitter {
     reserve1: string,
     event: any
   ): Promise<void> {
+    // Extract event data properly - ethers.js events have different structure
+    const txHash = event.transactionHash || event.hash || event.tx?.hash || `tx-${Date.now()}`;
+    const logIndex = event.logIndex || event.index || event.log?.index || Date.now();
+    const blockNumber = event.blockNumber || event.block || event.log?.blockNumber || 0;
+    
     const standardizedEvent: StandardizedEvent = {
-      id: `${event.transactionHash}-${event.logIndex}`,
+      id: `${txHash}-${logIndex}-sync`,
       protocol: poolInfo.protocol,
       version: poolInfo.version,
       eventType: 'sync',
       timestamp: Date.now(),
-      blockNumber: event.blockNumber,
-      transactionHash: event.transactionHash,
-      logIndex: event.logIndex,
+      blockNumber: blockNumber,
+      transactionHash: txHash,
+      logIndex: logIndex,
       poolAddress: poolInfo.address,
       token0: poolInfo.token0,
       token1: poolInfo.token1,
@@ -390,15 +427,20 @@ export class ProtocolEventListener extends EventEmitter {
     tick: number,
     event: any
   ): Promise<void> {
+    // Extract event data properly - ethers.js events have different structure
+    const txHash = event.transactionHash || event.hash || event.tx?.hash || `tx-${Date.now()}`;
+    const logIndex = event.logIndex || event.index || event.log?.index || Date.now();
+    const blockNumber = event.blockNumber || event.block || event.log?.blockNumber || 0;
+    
     const standardizedEvent: StandardizedEvent = {
-      id: `${event.transactionHash}-${event.logIndex}`,
+      id: `${txHash}-${logIndex}-initialize`,
       protocol: poolInfo.protocol,
       version: poolInfo.version,
       eventType: 'initialize',
       timestamp: Date.now(),
-      blockNumber: event.blockNumber,
-      transactionHash: event.transactionHash,
-      logIndex: event.logIndex,
+      blockNumber: blockNumber,
+      transactionHash: txHash,
+      logIndex: logIndex,
       poolAddress: poolInfo.address,
       token0: poolInfo.token0,
       token1: poolInfo.token1,
@@ -423,15 +465,20 @@ export class ProtocolEventListener extends EventEmitter {
     tick: number,
     event: any
   ): Promise<void> {
+    // Extract event data properly - ethers.js events have different structure
+    const txHash = event.transactionHash || event.hash || event.tx?.hash || `tx-${Date.now()}`;
+    const logIndex = event.logIndex || event.index || event.log?.index || Date.now();
+    const blockNumber = event.blockNumber || event.block || event.log?.blockNumber || 0;
+    
     const standardizedEvent: StandardizedEvent = {
-      id: `${event.transactionHash}-${event.logIndex}`,
+      id: `${txHash}-${logIndex}-swap`,
       protocol: poolInfo.protocol,
       version: poolInfo.version,
       eventType: 'swap',
       timestamp: Date.now(),
-      blockNumber: event.blockNumber,
-      transactionHash: event.transactionHash,
-      logIndex: event.logIndex,
+      blockNumber: blockNumber,
+      transactionHash: txHash,
+      logIndex: logIndex,
       poolAddress: poolInfo.address,
       token0: poolInfo.token0,
       token1: poolInfo.token1,
@@ -439,10 +486,10 @@ export class ProtocolEventListener extends EventEmitter {
         type: 'swap',
         sender,
         recipient,
-        amount0In: amount0.startsWith('-') ? '0' : amount0,
-        amount1In: amount1.startsWith('-') ? '0' : amount1,
-        amount0Out: amount0.startsWith('-') ? amount0.slice(1) : '0',
-        amount1Out: amount1.startsWith('-') ? amount1.slice(1) : '0',
+        amount0In: amount0.toString().startsWith('-') ? '0' : amount0.toString(),
+        amount1In: amount1.toString().startsWith('-') ? '0' : amount1.toString(),
+        amount0Out: amount0.toString().startsWith('-') ? amount0.toString().slice(1) : '0',
+        amount1Out: amount1.toString().startsWith('-') ? amount1.toString().slice(1) : '0',
         sqrtPriceX96: sqrtPriceX96.toString(),
         tick
       }
@@ -462,15 +509,20 @@ export class ProtocolEventListener extends EventEmitter {
     amount1: string,
     event: any
   ): Promise<void> {
+    // Extract event data properly - ethers.js events have different structure
+    const txHash = event.transactionHash || event.hash || event.tx?.hash || `tx-${Date.now()}`;
+    const logIndex = event.logIndex || event.index || event.log?.index || Date.now();
+    const blockNumber = event.blockNumber || event.block || event.log?.blockNumber || 0;
+    
     const standardizedEvent: StandardizedEvent = {
-      id: `${event.transactionHash}-${event.logIndex}`,
+      id: `${txHash}-${logIndex}-mint`,
       protocol: poolInfo.protocol,
       version: poolInfo.version,
       eventType: 'mint',
       timestamp: Date.now(),
-      blockNumber: event.blockNumber,
-      transactionHash: event.transactionHash,
-      logIndex: event.logIndex,
+      blockNumber: blockNumber,
+      transactionHash: txHash,
+      logIndex: logIndex,
       poolAddress: poolInfo.address,
       token0: poolInfo.token0,
       token1: poolInfo.token1,
@@ -499,15 +551,20 @@ export class ProtocolEventListener extends EventEmitter {
     amount1: string,
     event: any
   ): Promise<void> {
+    // Extract event data properly - ethers.js events have different structure
+    const txHash = event.transactionHash || event.hash || event.tx?.hash || `tx-${Date.now()}`;
+    const logIndex = event.logIndex || event.index || event.log?.index || Date.now();
+    const blockNumber = event.blockNumber || event.block || event.log?.blockNumber || 0;
+    
     const standardizedEvent: StandardizedEvent = {
-      id: `${event.transactionHash}-${event.logIndex}`,
+      id: `${txHash}-${logIndex}-burn`,
       protocol: poolInfo.protocol,
       version: poolInfo.version,
       eventType: 'burn',
       timestamp: Date.now(),
-      blockNumber: event.blockNumber,
-      transactionHash: event.transactionHash,
-      logIndex: event.logIndex,
+      blockNumber: blockNumber,
+      transactionHash: txHash,
+      logIndex: logIndex,
       poolAddress: poolInfo.address,
       token0: poolInfo.token0,
       token1: poolInfo.token1,
@@ -544,6 +601,12 @@ export class ProtocolEventListener extends EventEmitter {
       };
     } catch (error) {
       console.warn(`Failed to get token info for ${tokenAddress}:`, error);
+      // Try fallback token info first
+      const fallbackInfo = this.getFallbackTokenInfo(tokenAddress);
+      if (fallbackInfo) {
+        this.tokenCache.set(tokenAddress, fallbackInfo);
+        return fallbackInfo;
+      }
       return {
         address: tokenAddress,
         symbol: 'UNKNOWN',
@@ -567,11 +630,11 @@ export class ProtocolEventListener extends EventEmitter {
   private getFactoryABI(protocol: ProtocolType): string[] {
     switch (protocol) {
       case 'uniswap-v2':
-        return ['event PairCreated(address indexed token0, address indexed token1, address pair, uint)'];
+        return UNISWAP_V2_FACTORY_ABI;
       case 'uniswap-v3':
-        return ['event PoolCreated(address indexed token0, address indexed token1, uint24 indexed fee, int24 tickSpacing, address pool)'];
+        return UNISWAP_V3_FACTORY_ABI;
       case 'pancakeswap-v2':
-        return ['event PairCreated(address indexed token0, address indexed token1, address pair, uint)'];
+        return PANCAKESWAP_V2_FACTORY_ABI;
       default:
         throw new Error(`Unsupported protocol: ${protocol}`);
     }
@@ -580,26 +643,11 @@ export class ProtocolEventListener extends EventEmitter {
   private getPoolABI(protocol: ProtocolType): string[] {
     switch (protocol) {
       case 'uniswap-v2':
-        return [
-          'event Swap(address indexed sender, uint amount0In, uint amount1In, uint amount0Out, uint amount1Out, address indexed to)',
-          'event Mint(address indexed sender, uint amount0, uint amount1)',
-          'event Burn(address indexed sender, uint amount0, uint amount1, address indexed to)',
-          'event Sync(uint112 reserve0, uint112 reserve1)'
-        ];
+        return UNISWAP_V2_PAIR_ABI;
       case 'uniswap-v3':
-        return [
-          'event Initialize(uint160 sqrtPriceX96, int24 tick)',
-          'event Mint(address sender, address indexed owner, int24 indexed tickLower, int24 indexed tickUpper, uint128 amount, uint256 amount0, uint256 amount1)',
-          'event Burn(address indexed owner, int24 indexed tickLower, int24 indexed tickUpper, uint128 amount, uint256 amount0, uint256 amount1)',
-          'event Swap(address indexed sender, address indexed recipient, int256 amount0, int256 amount1, uint160 sqrtPriceX96, uint128 liquidity, int24 tick)'
-        ];
+        return UNISWAP_V3_POOL_ABI;
       case 'pancakeswap-v2':
-        return [
-          'event Swap(address indexed sender, uint amount0In, uint amount1In, uint amount0Out, uint amount1Out, address indexed to)',
-          'event Mint(address indexed sender, uint amount0, uint amount1)',
-          'event Burn(address indexed sender, uint amount0, uint amount1, address indexed to)',
-          'event Sync(uint112 reserve0, uint112 reserve1)'
-        ];
+        return PANCAKESWAP_V2_PAIR_ABI;
       default:
         throw new Error(`Unsupported protocol: ${protocol}`);
     }
@@ -608,6 +656,182 @@ export class ProtocolEventListener extends EventEmitter {
   private async startFactoryEventListening(): Promise<void> {
     // This method is called after factory listeners are set up
     console.log('Factory event listening started');
+    
+    // Add some debugging to see if we're actually listening
+    console.log('🔍 Active factory listeners:', this.factoryListeners.size);
+    console.log('🔍 Known pools:', this.knownPools.size);
+    
+    // Add some popular existing pools to monitor for events
+    await this.addPopularPools();
+    
+    // Log when we start listening to existing pools
+    if (this.knownPools.size > 0) {
+      console.log('🔍 Starting to listen to existing pools:', Array.from(this.knownPools.keys()));
+    }
+  }
+
+  private async addPopularPools(): Promise<void> {
+    // Add popular pool addresses with diverse token coverage
+    const popularPools = [
+      // Uniswap V2 - Major pairs
+      {
+        protocol: 'uniswap-v2' as ProtocolType,
+        address: '0xB4e16d0168e52d35CaCD2c6185b44281Ec28C9Dc' // WETH/USDC
+      },
+      {
+        protocol: 'uniswap-v2' as ProtocolType,
+        address: '0x0d4a11d5EEaaC28EC3F61d100daF4d40471f1852' // WETH/USDT
+      },
+      {
+        protocol: 'uniswap-v2' as ProtocolType,
+        address: '0xA478c2975Ab1Ea89e8196811F51A7B7Ade33eB11' // UNI/WETH
+      },
+      {
+        protocol: 'uniswap-v2' as ProtocolType,
+        address: '0xBb2b8038a1640196FbE3e38816F3e67Cba72D940' // WBTC/WETH
+      },
+      {
+        protocol: 'uniswap-v2' as ProtocolType,
+        address: '0x2fDbAdf3C4D5A8666Bc06645B8358ab803996E28' // DAI/WETH
+      },
+      {
+        protocol: 'uniswap-v2' as ProtocolType,
+        address: '0x43AE24960e5534731Fc831386c07755A2dc33D47' // LINK/WETH
+      },
+      
+      // Uniswap V3 - Major pairs with different fees
+      {
+        protocol: 'uniswap-v3' as ProtocolType,
+        address: '0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640' // WETH/USDC 0.05%
+      },
+      {
+        protocol: 'uniswap-v3' as ProtocolType,
+        address: '0x11b815efB8f581194ae79006d24E0d814B7697F6' // WETH/USDT 0.05%
+      },
+      {
+        protocol: 'uniswap-v3' as ProtocolType,
+        address: '0x1d42064Fc4Beb5F8aAF85F4617AE8b3b5B8Bd801' // UNI/WETH 0.3%
+      },
+      {
+        protocol: 'uniswap-v3' as ProtocolType,
+        address: '0xCBCdF9626bC03E24f779434178A73a0B4bad62eD' // WBTC/WETH 0.3%
+      },
+      
+      // PancakeSwap V2 - BSC pairs
+      {
+        protocol: 'pancakeswap-v2' as ProtocolType,
+        address: '0x7213a321F1855CF1779f42c0CD85d3D95291D34C' // WBNB/BUSD
+      },
+      {
+        protocol: 'pancakeswap-v2' as ProtocolType,
+        address: '0x58F876857a02D6762E0101bb5C46A8c1ED44Dc16' // WBNB/BUSD (different pool)
+      },
+      {
+        protocol: 'pancakeswap-v2' as ProtocolType,
+        address: '0x74E4716E431f45807DCF4f3fA29A161f9F79019e' // WBNB/WETH
+      },
+      {
+        protocol: 'pancakeswap-v2' as ProtocolType,
+        address: '0x61EB789d75A95CAa3fF5ed22AB22bD1b5E2b9E32' // CAKE/WBNB
+      }
+    ];
+
+    console.log('🔍 Adding popular pools to monitor...');
+
+    // Add pools and let the system discover tokens dynamically
+    for (const pool of popularPools) {
+      try {
+        // Get token addresses from the pool contract
+        const token0 = await this.getToken0FromPool(pool.address, pool.protocol);
+        const token1 = await this.getToken1FromPool(pool.address, pool.protocol);
+        
+        if (token0 && token1) {
+          await this.startPoolListening(pool.protocol, pool.address, token0, token1);
+        }
+      } catch (error) {
+        console.warn(`Failed to get tokens for pool ${pool.address}:`, error);
+      }
+    }
+
+    console.log('🔍 Added popular pools, now monitoring:', this.knownPools.size, 'pools');
+  }
+
+  private async getToken0FromPool(poolAddress: string, protocol: ProtocolType): Promise<string | null> {
+    try {
+      const poolContract = new ethers.Contract(poolAddress, this.getPoolABI(protocol), this.provider);
+      const token0 = await poolContract.token0();
+      console.log(`✅ Got token0 for ${poolAddress}: ${token0}`);
+      return token0;
+    } catch (error) {
+      console.warn(`❌ Failed to get token0 for pool ${poolAddress}:`, error);
+      // Return fallback token addresses for known pools
+      return this.getFallbackToken0(poolAddress, protocol);
+    }
+  }
+
+  private async getToken1FromPool(poolAddress: string, protocol: ProtocolType): Promise<string | null> {
+    try {
+      const poolContract = new ethers.Contract(poolAddress, this.getPoolABI(protocol), this.provider);
+      const token1 = await poolContract.token1();
+      console.log(`✅ Got token1 for ${poolAddress}: ${token1}`);
+      return token1;
+    } catch (error) {
+      console.warn(`❌ Failed to get token1 for pool ${poolAddress}:`, error);
+      // Return fallback token addresses for known pools
+      return this.getFallbackToken1(poolAddress, protocol);
+    }
+  }
+
+  private getFallbackToken0(poolAddress: string, protocol: ProtocolType): string | null {
+    // Known token0 addresses for popular pools (correct addresses)
+    const fallbackTokens: { [key: string]: string } = {
+      // Uniswap V2
+      '0xB4e16d0168e52d35CaCD2c6185b44281Ec28C9Dc': '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48', // USDC
+      '0x0d4a11d5EEaaC28EC3F61d100daF4d40471f1852': '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2', // WETH
+      '0xA478c2975Ab1Ea89e8196811F51A7B7Ade33eB11': '0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984', // UNI
+      '0xBb2b8038a1640196FbE3e38816F3e67Cba72D940': '0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599', // WBTC
+      '0x2fDbAdf3C4D5A8666Bc06645B8358ab803996E28': '0x6B175474E89094C44Da98b954EedeAC495271d0F', // DAI
+      '0x43AE24960e5534731Fc831386c07755A2dc33D47': '0x514910771AF9Ca656af840dff83E8264EcF986CA', // LINK
+      
+      // Uniswap V3
+      '0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640': '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48', // USDC
+      '0x11b815efB8f581194ae79006d24E0d814B7697F6': '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2', // WETH
+      '0x1d42064Fc4Beb5F8aAF85F4617AE8b3b5B8Bd801': '0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984', // UNI
+      '0xCBCdF9626bC03E24f779434178A73a0B4bad62eD': '0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599', // WBTC
+      
+      // PancakeSwap V2
+      '0x7213a321F1855CF1779f42c0CD85d3D95291D34C': '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c', // WBNB
+      '0x58F876857a02D6762E0101bb5C46A8c1ED44Dc16': '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c', // WBNB
+      '0x74E4716E431f45807DCF4f3fA29A161f9F79019e': '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c', // WBNB
+      '0x61EB789d75A95CAa3fF5ed22AB22bD1b5E2b9E32': '0x0E09FaBB73Bd3Ade0a17ECC321fD13a19e81cE82', // CAKE
+    };
+    return fallbackTokens[poolAddress] || null;
+  }
+
+  private getFallbackToken1(poolAddress: string, protocol: ProtocolType): string | null {
+    // Known token1 addresses for popular pools (correct addresses)
+    const fallbackTokens: { [key: string]: string } = {
+      // Uniswap V2
+      '0xB4e16d0168e52d35CaCD2c6185b44281Ec28C9Dc': '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2', // WETH
+      '0x0d4a11d5EEaaC28EC3F61d100daF4d40471f1852': '0xdAC17F958D2ee523a2206206994597C13D831ec7', // USDT
+      '0xA478c2975Ab1Ea89e8196811F51A7B7Ade33eB11': '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2', // WETH
+      '0xBb2b8038a1640196FbE3e38816F3e67Cba72D940': '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2', // WETH
+      '0x2fDbAdf3C4D5A8666Bc06645B8358ab803996E28': '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2', // WETH
+      '0x43AE24960e5534731Fc831386c07755A2dc33D47': '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2', // WETH
+      
+      // Uniswap V3
+      '0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640': '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2', // WETH
+      '0x11b815efB8f581194ae79006d24E0d814B7697F6': '0xdAC17F958D2ee523a2206206994597C13D831ec7', // USDT
+      '0x1d42064Fc4Beb5F8aAF85F4617AE8b3b5B8Bd801': '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2', // WETH
+      '0xCBCdF9626bC03E24f779434178A73a0B4bad62eD': '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2', // WETH
+      
+      // PancakeSwap V2
+      '0x7213a321F1855CF1779f42c0CD85d3D95291D34C': '0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56', // BUSD
+      '0x58F876857a02D6762E0101bb5C46A8c1ED44Dc16': '0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56', // BUSD
+      '0x74E4716E431f45807DCF4f3fA29A161f9F79019e': '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2', // WETH
+      '0x61EB789d75A95CAa3fF5ed22AB22bD1b5E2b9E32': '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c', // WBNB
+    };
+    return fallbackTokens[poolAddress] || null;
   }
 
   getKnownPools(): PoolInfo[] {
@@ -616,5 +840,30 @@ export class ProtocolEventListener extends EventEmitter {
 
   getPoolInfo(poolAddress: string): PoolInfo | undefined {
     return this.knownPools.get(poolAddress);
+  }
+
+  private getFallbackTokenInfo(tokenAddress: string): TokenInfo | null {
+    // Known token information for popular tokens
+    const knownTokens: { [key: string]: TokenInfo } = {
+      // Ethereum Mainnet
+      '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2': { address: tokenAddress, symbol: 'WETH', decimals: 18, name: 'Wrapped Ether' },
+      '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48': { address: tokenAddress, symbol: 'USDC', decimals: 6, name: 'USD Coin' },
+      '0xdAC17F958D2ee523a2206206994597C13D831ec7': { address: tokenAddress, symbol: 'USDT', decimals: 6, name: 'Tether USD' },
+      '0x6B175474E89094C44Da98b954EedeAC495271d0F': { address: tokenAddress, symbol: 'DAI', decimals: 18, name: 'Dai Stablecoin' },
+      '0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599': { address: tokenAddress, symbol: 'WBTC', decimals: 8, name: 'Wrapped BTC' },
+      '0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984': { address: tokenAddress, symbol: 'UNI', decimals: 18, name: 'Uniswap' },
+      '0x514910771AF9Ca656af840dff83E8264EcF986CA': { address: tokenAddress, symbol: 'LINK', decimals: 18, name: 'ChainLink Token' },
+      '0x0bc529c00C6401aEF6D220BE8C6Ea1667F6Ad93e': { address: tokenAddress, symbol: 'YFI', decimals: 18, name: 'yearn.finance' },
+      '0xC011a73ee8576Fb46F5E1c5751cA3B9Fe0af2a6F': { address: tokenAddress, symbol: 'SNX', decimals: 18, name: 'Synthetix Network Token' },
+      
+      // BSC Mainnet
+      '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c': { address: tokenAddress, symbol: 'WBNB', decimals: 18, name: 'Wrapped BNB' },
+      '0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56': { address: tokenAddress, symbol: 'BUSD', decimals: 18, name: 'BUSD Token' },
+      '0x0E09FaBB73Bd3Ade0a17ECC321fD13a19e81cE82': { address: tokenAddress, symbol: 'CAKE', decimals: 18, name: 'PancakeSwap Token' },
+      '0x2170Ed0880ac9A755fd29B2688956BD959F933F8': { address: tokenAddress, symbol: 'ETH', decimals: 18, name: 'Ethereum Token' },
+      '0x55d398326f99059fF775485246999027B3197955': { address: tokenAddress, symbol: 'USDT', decimals: 18, name: 'Tether USD' },
+      '0x7130d2A12B9BCbFAe4f2634d864A1Ee1Ce3Ead9c': { address: tokenAddress, symbol: 'BTCB', decimals: 18, name: 'Bitcoin BEP2' },
+    };
+    return knownTokens[tokenAddress] || null;
   }
 }
