@@ -108,127 +108,236 @@ export default function Home() {
           </div>
         </header>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Real-time Events */}
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
-              <div className={`w-3 h-3 rounded-full mr-3 ${isListening ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}></div>
-              Real-time Events
-            </h2>
-            
-            <div className="space-y-4 max-h-96 overflow-y-auto">
-              {events.length === 0 ? (
-                <p className="text-gray-500 text-center py-8">
-                  {isListening ? 'Waiting for events...' : 'Start the listener to see events'}
-                </p>
-              ) : (
-                events.map((event, index) => (
-                  <div key={event.id} className="border-l-4 border-blue-500 pl-4 py-2 bg-gray-50 rounded-r-lg">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-semibold text-blue-600 uppercase">
-                        {event.protocol} {event.eventType}
-                      </span>
-                      <span className="text-xs text-gray-500">
-                        Block #{event.blockNumber}
-                      </span>
-                    </div>
-                    <div className="text-sm text-gray-700">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium">{event.token0.symbol}</span>
-                        <span>↔</span>
-                        <span className="font-medium">{event.token1.symbol}</span>
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+          {/* Real-time Events - Split by Protocol */}
+          <div className="xl:col-span-2 space-y-6">
+            {/* Uniswap V2 Events */}
+            <div className="bg-white rounded-xl shadow-lg p-6">
+              <div className="flex items-center mb-4">
+                <div className="w-6 h-6 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
+                  <span className="text-blue-600 font-bold text-xs">U2</span>
+                </div>
+                <h2 className="text-xl font-bold text-gray-900">Uniswap V2 Events</h2>
+                <div className={`w-2 h-2 rounded-full ml-auto ${isListening ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}></div>
+              </div>
+              
+              <div className="space-y-3 max-h-64 overflow-y-auto">
+                {events.filter(event => event.protocol === 'uniswap-v2').length === 0 ? (
+                  <p className="text-gray-500 text-center py-4 text-sm">
+                    {isListening ? 'Waiting for Uniswap V2 events...' : 'Start the listener to see events'}
+                  </p>
+                ) : (
+                  events.filter(event => event.protocol === 'uniswap-v2').slice(0, 5).map((event, index) => (
+                    <div key={event.id} className="border-l-4 border-blue-500 pl-3 py-2 bg-blue-50 rounded-r-lg">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs font-semibold text-blue-600 uppercase">
+                          {event.eventType}
+                        </span>
+                        <span className="text-xs text-gray-500">
+                          #{event.blockNumber}
+                        </span>
                       </div>
-                      <div className="text-xs text-gray-500 mt-1">
-                        {event.data.amount0} {event.token0.symbol} / {event.data.amount1} {event.token1.symbol}
+                      <div className="text-xs text-gray-700">
+                        <div className="flex items-center gap-1">
+                          <span className="font-medium">{event.token0.symbol}</span>
+                          <span>↔</span>
+                          <span className="font-medium">{event.token1.symbol}</span>
+                        </div>
+                        <div className="text-xs text-gray-500 mt-1">
+                          {event.data.amount0} {event.token0.symbol} / {event.data.amount1} {event.token1.symbol}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))
-              )}
+                  ))
+                )}
+              </div>
+            </div>
+
+            {/* Uniswap V3 Events */}
+            <div className="bg-white rounded-xl shadow-lg p-6">
+              <div className="flex items-center mb-4">
+                <div className="w-6 h-6 bg-purple-100 rounded-lg flex items-center justify-center mr-3">
+                  <span className="text-purple-600 font-bold text-xs">U3</span>
+                </div>
+                <h2 className="text-xl font-bold text-gray-900">Uniswap V3 Events</h2>
+                <div className={`w-2 h-2 rounded-full ml-auto ${isListening ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}></div>
+              </div>
+              
+              <div className="space-y-3 max-h-64 overflow-y-auto">
+                {events.filter(event => event.protocol === 'uniswap-v3').length === 0 ? (
+                  <p className="text-gray-500 text-center py-4 text-sm">
+                    {isListening ? 'Waiting for Uniswap V3 events...' : 'Start the listener to see events'}
+                  </p>
+                ) : (
+                  events.filter(event => event.protocol === 'uniswap-v3').slice(0, 5).map((event, index) => (
+                    <div key={event.id} className="border-l-4 border-purple-500 pl-3 py-2 bg-purple-50 rounded-r-lg">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs font-semibold text-purple-600 uppercase">
+                          {event.eventType}
+                        </span>
+                        <span className="text-xs text-gray-500">
+                          #{event.blockNumber}
+                        </span>
+                      </div>
+                      <div className="text-xs text-gray-700">
+                        <div className="flex items-center gap-1">
+                          <span className="font-medium">{event.token0.symbol}</span>
+                          <span>↔</span>
+                          <span className="font-medium">{event.token1.symbol}</span>
+                        </div>
+                        <div className="text-xs text-gray-500 mt-1">
+                          {event.data.amount0} {event.token0.symbol} / {event.data.amount1} {event.token1.symbol}
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            {/* PancakeSwap V2 Events */}
+            <div className="bg-white rounded-xl shadow-lg p-6">
+              <div className="flex items-center mb-4">
+                <div className="w-6 h-6 bg-yellow-100 rounded-lg flex items-center justify-center mr-3">
+                  <span className="text-yellow-600 font-bold text-xs">P2</span>
+                </div>
+                <h2 className="text-xl font-bold text-gray-900">PancakeSwap V2 Events</h2>
+                <div className={`w-2 h-2 rounded-full ml-auto ${isListening ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}></div>
+              </div>
+              
+              <div className="space-y-3 max-h-64 overflow-y-auto">
+                {events.filter(event => event.protocol === 'pancakeswap-v2').length === 0 ? (
+                  <p className="text-gray-500 text-center py-4 text-sm">
+                    {isListening ? 'Waiting for PancakeSwap V2 events...' : 'Start the listener to see events'}
+                  </p>
+                ) : (
+                  events.filter(event => event.protocol === 'pancakeswap-v2').slice(0, 5).map((event, index) => (
+                    <div key={event.id} className="border-l-4 border-yellow-500 pl-3 py-2 bg-yellow-50 rounded-r-lg">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs font-semibold text-yellow-600 uppercase">
+                          {event.eventType}
+                        </span>
+                        <span className="text-xs text-gray-500">
+                          #{event.blockNumber}
+                        </span>
+                      </div>
+                      <div className="text-xs text-gray-700">
+                        <div className="flex items-center gap-1">
+                          <span className="font-medium">{event.token0.symbol}</span>
+                          <span>↔</span>
+                          <span className="font-medium">{event.token1.symbol}</span>
+                        </div>
+                        <div className="text-xs text-gray-500 mt-1">
+                          {event.data.amount0} {event.token0.symbol} / {event.data.amount1} {event.token1.symbol}
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
             </div>
           </div>
 
-          {/* Protocol Status */}
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">
-              Protocol Status
-            </h2>
-            
-            <div className="space-y-4">
-              <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg">
-                <div className="flex items-center">
-                  <div className="w-3 h-3 bg-green-500 rounded-full mr-3"></div>
-                  <span className="font-semibold">Uniswap V2</span>
+          {/* Protocol Status - Separate cards for each version */}
+          <div className="space-y-6">
+            {/* Uniswap V2 */}
+            <div className="bg-white rounded-xl shadow-lg p-6">
+              <div className="flex items-center mb-4">
+                <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
+                  <span className="text-blue-600 font-bold text-sm">U2</span>
                 </div>
-                <span className="text-sm text-gray-600">Ethereum</span>
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">Uniswap V2</h2>
+                  <p className="text-sm text-gray-600">Ethereum</p>
+                </div>
               </div>
               
-              <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg">
+              <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg mb-4">
                 <div className="flex items-center">
-                  <div className="w-3 h-3 bg-green-500 rounded-full mr-3"></div>
-                  <span className="font-semibold">Uniswap V3</span>
+                  <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
+                  <span className="font-medium text-sm">Active</span>
                 </div>
-                <span className="text-sm text-gray-600">Ethereum</span>
+                <span className="text-xs text-gray-600">Factory: 0x5C69...6f</span>
               </div>
-              
-              <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg">
-                <div className="flex items-center">
-                  <div className="w-3 h-3 bg-green-500 rounded-full mr-3"></div>
-                  <span className="font-semibold">PancakeSwap V2</span>
+
+              <div>
+                <h3 className="text-sm font-semibold text-gray-700 mb-2">Events</h3>
+                <div className="grid grid-cols-2 gap-1">
+                  {['Swap', 'Mint', 'Burn', 'Sync'].map((eventType) => (
+                    <div key={eventType} className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded text-center">
+                      {eventType}
+                    </div>
+                  ))}
                 </div>
-                <span className="text-sm text-gray-600">BSC</span>
               </div>
             </div>
 
-            <div className="mt-8">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Supported Events</h3>
-              <div className="grid grid-cols-2 gap-2">
-                {['Swap', 'Mint', 'Burn', 'Sync', 'Initialize'].map((eventType) => (
-                  <div key={eventType} className="text-sm bg-blue-50 text-blue-700 px-3 py-2 rounded-lg text-center">
-                    {eventType}
-                  </div>
-                ))}
+            {/* Uniswap V3 */}
+            <div className="bg-white rounded-xl shadow-lg p-6">
+              <div className="flex items-center mb-4">
+                <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center mr-3">
+                  <span className="text-purple-600 font-bold text-sm">U3</span>
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">Uniswap V3</h2>
+                  <p className="text-sm text-gray-600">Ethereum</p>
+                </div>
+              </div>
+              
+              <div className="flex items-center justify-between p-3 bg-purple-50 rounded-lg mb-4">
+                <div className="flex items-center">
+                  <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
+                  <span className="font-medium text-sm">Active</span>
+                </div>
+                <span className="text-xs text-gray-600">Factory: 0x1F98...984</span>
+              </div>
+
+              <div>
+                <h3 className="text-sm font-semibold text-gray-700 mb-2">Events</h3>
+                <div className="grid grid-cols-2 gap-1">
+                  {['Swap', 'Mint', 'Burn', 'Initialize'].map((eventType) => (
+                    <div key={eventType} className="text-xs bg-purple-50 text-purple-700 px-2 py-1 rounded text-center">
+                      {eventType}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* PancakeSwap V2 */}
+            <div className="bg-white rounded-xl shadow-lg p-6">
+              <div className="flex items-center mb-4">
+                <div className="w-8 h-8 bg-yellow-100 rounded-lg flex items-center justify-center mr-3">
+                  <span className="text-yellow-600 font-bold text-sm">P2</span>
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">PancakeSwap V2</h2>
+                  <p className="text-sm text-gray-600">BSC</p>
+                </div>
+              </div>
+              
+              <div className="flex items-center justify-between p-3 bg-yellow-50 rounded-lg mb-4">
+                <div className="flex items-center">
+                  <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
+                  <span className="font-medium text-sm">Active</span>
+                </div>
+                <span className="text-xs text-gray-600">Factory: 0xcA14...4f</span>
+              </div>
+
+              <div>
+                <h3 className="text-sm font-semibold text-gray-700 mb-2">Events</h3>
+                <div className="grid grid-cols-2 gap-1">
+                  {['Swap', 'Mint', 'Burn', 'Sync'].map((eventType) => (
+                    <div key={eventType} className="text-xs bg-yellow-50 text-yellow-700 px-2 py-1 rounded text-center">
+                      {eventType}
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Instructions */}
-        <div className="mt-12 bg-white rounded-xl shadow-lg p-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">Getting Started</h2>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="text-center">
-              <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-2xl">🔧</span>
-              </div>
-              <h3 className="font-semibold text-gray-900 mb-2">Setup</h3>
-              <p className="text-sm text-gray-600">
-                Configure your RPC endpoints in the .env file
-              </p>
-            </div>
-            
-            <div className="text-center">
-              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-2xl">🚀</span>
-              </div>
-              <h3 className="font-semibold text-gray-900 mb-2">Run</h3>
-              <p className="text-sm text-gray-600">
-                Start the listener with npm run listener:ethereum
-              </p>
-            </div>
-            
-            <div className="text-center">
-              <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-2xl">📊</span>
-              </div>
-              <h3 className="font-semibold text-gray-900 mb-2">Monitor</h3>
-              <p className="text-sm text-gray-600">
-                Watch real-time events from all supported protocols
-              </p>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   );
