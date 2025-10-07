@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { createEthereumListener, createBSCListener, createEthereumListenerWithConfig, createBSCListenerWithConfig } from './protocol-listener';
+import { createEthereumListener, createBSCListener } from './protocol-listener';
 import { StandardizedEvent, FactoryEvent } from '../types/schemas';
 
 export default function Home() {
@@ -10,13 +10,6 @@ export default function Home() {
   const [pools, setPools] = useState<any[]>([]);
   const [ethereumListener, setEthereumListener] = useState<any>(null);
   const [bscListener, setBscListener] = useState<any>(null);
-  const [showConfig, setShowConfig] = useState(false);
-  const [customRpc, setCustomRpc] = useState({
-    ethereumRpc: '',
-    ethereumWs: '',
-    bscRpc: '',
-    bscWs: ''
-  });
 
   const startListener = async () => {
     try {
@@ -24,21 +17,11 @@ export default function Home() {
       console.log('Starting REAL blockchain event listeners...');
       
       // Create Ethereum listener (Uniswap V2 & V3)
-      const ethListener = customRpc.ethereumRpc ? 
-        createEthereumListenerWithConfig({
-          rpcUrl: customRpc.ethereumRpc,
-          wsUrl: customRpc.ethereumWs
-        }) : 
-        createEthereumListener();
+      const ethListener = createEthereumListener();
       setEthereumListener(ethListener);
       
       // Create BSC listener (PancakeSwap V2)
-      const bscListener = customRpc.bscRpc ? 
-        createBSCListenerWithConfig({
-          rpcUrl: customRpc.bscRpc,
-          wsUrl: customRpc.bscWs
-        }) : 
-        createBSCListener();
+      const bscListener = createBSCListener();
       setBscListener(bscListener);
       
       // Get the underlying event listeners
@@ -158,65 +141,7 @@ export default function Home() {
               Disconnect
             </button>
             
-            <button
-              onClick={() => setShowConfig(!showConfig)}
-              className="px-6 py-3 rounded-lg font-semibold transition-colors bg-blue-600 hover:bg-blue-700 text-white"
-            >
-              {showConfig ? 'Hide Config' : 'RPC Config'}
-            </button>
           </div>
-          
-          {showConfig && (
-            <div className="mt-8 bg-white rounded-xl shadow-lg p-6 max-w-4xl mx-auto">
-              <h3 className="text-lg font-bold text-gray-900 mb-4">RPC Configuration</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Ethereum RPC URL</label>
-                  <input
-                    type="text"
-                    value={customRpc.ethereumRpc}
-                    onChange={(e) => setCustomRpc(prev => ({ ...prev, ethereumRpc: e.target.value }))}
-                    placeholder="https://eth-mainnet.g.alchemy.com/v2/YOUR_API_KEY"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
-        </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Ethereum WebSocket URL</label>
-                  <input
-                    type="text"
-                    value={customRpc.ethereumWs}
-                    onChange={(e) => setCustomRpc(prev => ({ ...prev, ethereumWs: e.target.value }))}
-                    placeholder="wss://eth-mainnet.g.alchemy.com/v2/YOUR_API_KEY"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">BSC RPC URL</label>
-                  <input
-                    type="text"
-                    value={customRpc.bscRpc}
-                    onChange={(e) => setCustomRpc(prev => ({ ...prev, bscRpc: e.target.value }))}
-                    placeholder="https://bsc-dataseed.binance.org/"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">BSC WebSocket URL</label>
-                  <input
-                    type="text"
-                    value={customRpc.bscWs}
-                    onChange={(e) => setCustomRpc(prev => ({ ...prev, bscWs: e.target.value }))}
-                    placeholder="wss://bsc-ws-node.nariox.org:443/ws"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
-              </div>
-              <div className="mt-4 text-sm text-gray-600">
-                <p><strong>Default RPCs:</strong> Using Ankr (Ethereum) and Binance (BSC) free endpoints</p>
-                <p><strong>For better performance:</strong> Use paid RPC providers like Alchemy, Infura, or QuickNode</p>
-              </div>
-            </div>
-          )}
         </header>
 
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
