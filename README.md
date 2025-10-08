@@ -1,13 +1,7 @@
 # 🚀 Protocol Event Adapters
 
-> **A comprehensive blockchain event monitoring system that captures, standardizes, and stores protocol events in real-time using ClickHouse Cloud for analytics and data persistence.**
+A comprehensive blockchain event monitoring system that captures, standardizes, and stores protocol events in real-time using ClickHouse Cloud for analytics and data persistence.
 
-[![ClickHouse](https://img.shields.io/badge/ClickHouse-Cloud-blue)](https://clickhouse.cloud)
-[![Ethereum](https://img.shields.io/badge/Ethereum-Mainnet-627EEA)](https://ethereum.org)
-[![BSC](https://img.shields.io/badge/BSC-Mainnet-F0B90B)](https://bscscan.com)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue)](https://www.typescriptlang.org)
-
----
 
 ## 📋 Table of Contents
 
