@@ -2,6 +2,9 @@
 
 A comprehensive blockchain event monitoring system that captures, standardizes, and stores protocol events in real-time using ClickHouse Cloud for analytics and data persistence.
 
+Example of the table structure - 
+
+<img width="1263" height="806" alt="Screenshot 2025-10-08 at 5 14 55 PM" src="https://github.com/user-attachments/assets/605a4f8f-8b44-41f3-9809-3537b5f6e049" />
 
 ## 📋 Table of Contents
 
