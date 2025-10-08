@@ -12,7 +12,9 @@
     "listener:all": "npx tsx src/scripts/run-listener.ts all",
     "clickhouse:cloud-setup": "npx tsx src/scripts/setup-clickhouse-cloud.ts",
     "data:ingestion": "npx tsx src/scripts/run-data-ingestion.ts",
-    "test:integration": "npx tsx src/scripts/test-integration.ts"
+    "test:integration": "npx tsx src/scripts/test-integration.ts",
+    "db:view": "npx tsx src/scripts/view-database.ts",
+    "db:reset": "npx tsx src/scripts/reset-database.ts"
   },
   "dependencies": {
     "react": "19.1.0",
