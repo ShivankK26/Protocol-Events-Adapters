@@ -1,0 +1,97 @@
+<?xml version="1.0"?>
+<clickhouse>
+    <logger>
+        <level>information</level>
+        <log>/var/log/clickhouse-server/clickhouse-server.log</log>
+        <errorlog>/var/log/clickhouse-server/clickhouse-server.err.log</errorlog>
+        <size>1000M</size>
+        <count>10</count>
+    </logger>
+
+    <http_port>8125</http_port>
+    <tcp_port>9002</tcp_port>
+    <listen_host>0.0.0.0</listen_host>
+
+    <data_path>./clickhouse-data/replica-3/</data_path>
+    <tmp_path>./clickhouse-data/replica-3/tmp/</tmp_path>
+    <user_files_path>./clickhouse-data/replica-3/user_files/</user_files_path>
+    <format_schema_path>./clickhouse-data/replica-3/format_schemas/</format_schema_path>
+
+    <users>
+        <default>
+            <password></password>
+            <networks>
+                <ip>::/0</ip>
+            </networks>
+            <profile>default</profile>
+            <quota>default</quota>
+        </default>
+    </users>
+
+    <profiles>
+        <default>
+            <max_memory_usage>10000000000</max_memory_usage>
+            <use_uncompressed_cache>0</use_uncompressed_cache>
+            <load_balancing>random</load_balancing>
+        </default>
+    </profiles>
+
+    <quotas>
+        <default>
+            <interval>
+                <duration>3600</duration>
+                <queries>0</queries>
+                <errors>0</errors>
+                <result_rows>0</result_rows>
+                <read_rows>0</read_rows>
+                <execution_time>0</execution_time>
+            </interval>
+        </default>
+    </quotas>
+
+    <!-- Cluster configuration -->
+    <remote_servers>
+        <protocol_cluster>
+            <shard>
+                <replica>
+                    <host>localhost</host>
+                    <port>9001</port>
+                </replica>
+                <replica>
+                    <host>localhost</host>
+                    <port>9002</port>
+                </replica>
+                <replica>
+                    <host>localhost</host>
+                    <port>9003</port>
+                </replica>
+            </shard>
+        </protocol_cluster>
+    </remote_servers>
+
+    <!-- ZooKeeper configuration for replication -->
+    <zookeeper>
+        <node>
+            <host>localhost</host>
+            <port>2181</port>
+        </node>
+        <node>
+            <host>localhost</host>
+            <port>2182</port>
+        </node>
+        <node>
+            <host>localhost</host>
+            <port>2183</port>
+        </node>
+    </zookeeper>
+
+    <!-- Replication settings -->
+    <macros>
+        <replica>replica-3</replica>
+        <shard>shard-1</shard>
+    </macros>
+
+    <distributed_ddl>
+        <path>/clickhouse/task_queue/ddl</path>
+    </distributed_ddl>
+</clickhouse>

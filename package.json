@@ -9,7 +9,12 @@
     "lint": "eslint",
     "listener:ethereum": "npx tsx src/scripts/run-listener.ts ethereum",
     "listener:bsc": "npx tsx src/scripts/run-listener.ts bsc",
-    "listener:all": "npx tsx src/scripts/run-listener.ts all"
+    "listener:all": "npx tsx src/scripts/run-listener.ts all",
+    "clickhouse:cloud-setup": "npx tsx src/scripts/setup-clickhouse-cloud.ts",
+    "data:ingestion": "npx tsx src/scripts/run-data-ingestion.ts",
+    "test:integration": "npx tsx src/scripts/test-integration.ts",
+    "db:view": "npx tsx src/scripts/view-database.ts",
+    "db:reset": "npx tsx src/scripts/reset-database.ts"
   },
   "dependencies": {
     "react": "19.1.0",
@@ -19,7 +24,8 @@
     "ws": "^8.14.2",
     "axios": "^1.6.2",
     "dotenv": "^16.3.1",
-    "tsx": "^4.7.0"
+    "tsx": "^4.7.0",
+    "@clickhouse/client": "^1.0.0"
   },
   "devDependencies": {
     "typescript": "^5",
