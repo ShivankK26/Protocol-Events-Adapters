@@ -27,10 +27,7 @@ async function viewDatabase(): Promise<void> {
     // Show tables
     console.log('📋 Tables in database:');
     console.log('=====================');
-    const tablesResult = await clickhouseService.client.query({
-      query: 'SHOW TABLES'
-    });
-    const tables = await tablesResult.json();
+    const tables = await clickhouseService.executeQuery('SHOW TABLES');
     tables.data.forEach((table: any) => {
       console.log(`  - ${table.name}`);
     });
@@ -45,22 +42,19 @@ async function viewDatabase(): Promise<void> {
     if (eventCount > 0) {
       console.log('\n🕒 Recent Events (last 10):');
       console.log('==========================');
-      const recentEvents = await clickhouseService.client.query({
-        query: `
-          SELECT 
-            protocol,
-            event_type,
-            pool_address,
-            token0_symbol,
-            token1_symbol,
-            block_number,
-            toDateTime(timestamp / 1000) as event_time
-          FROM protocol_events 
-          ORDER BY timestamp DESC 
-          LIMIT 10
-        `
-      });
-      const events = await recentEvents.json();
+      const events = await clickhouseService.executeQuery(`
+        SELECT 
+          protocol,
+          event_type,
+          pool_address,
+          token0_symbol,
+          token1_symbol,
+          block_number,
+          toDateTime(timestamp / 1000) as event_time
+        FROM protocol_events 
+        ORDER BY timestamp DESC 
+        LIMIT 10
+      `);
       
       events.data.forEach((event: any, index: number) => {
         console.log(`  ${index + 1}. ${event.protocol} ${event.event_type}`);
@@ -83,22 +77,19 @@ async function viewDatabase(): Promise<void> {
     console.log('\n📊 Real-time Analytics:');
     console.log('======================');
     try {
-      const mvResult = await clickhouseService.client.query({
-        query: `
-          SELECT 
-            protocol,
-            event_type,
-            toStartOfHour(toDateTime(timestamp / 1000)) as hour,
-            count() as event_count,
-            uniq(pool_address) as unique_pools,
-            uniq(transaction_hash) as unique_transactions
-          FROM protocol_events 
-          GROUP BY protocol, event_type, hour
-          ORDER BY hour DESC 
-          LIMIT 5
-        `
-      });
-      const mvData = await mvResult.json();
+      const mvData = await clickhouseService.executeQuery(`
+        SELECT 
+          protocol,
+          event_type,
+          toStartOfHour(toDateTime(timestamp / 1000)) as hour,
+          count() as event_count,
+          uniq(pool_address) as unique_pools,
+          uniq(transaction_hash) as unique_transactions
+        FROM protocol_events 
+        GROUP BY protocol, event_type, hour
+        ORDER BY hour DESC 
+        LIMIT 5
+      `);
       
       if (mvData.data.length > 0) {
         mvData.data.forEach((row: any) => {

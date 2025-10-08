@@ -27,14 +27,14 @@ async function resetDatabase(): Promise<void> {
     // Drop existing tables
     console.log('\n🗑️ Dropping existing tables...');
     try {
-      await clickhouseService.client.command({ query: 'DROP TABLE IF EXISTS protocol_events' });
+      await clickhouseService.executeCommand('DROP TABLE IF EXISTS protocol_events');
       console.log('✅ Dropped protocol_events table');
     } catch (error) {
       console.log('⚠️ protocol_events table might not exist');
     }
 
     try {
-      await clickhouseService.client.command({ query: 'DROP TABLE IF EXISTS protocol_events_mv' });
+      await clickhouseService.executeCommand('DROP TABLE IF EXISTS protocol_events_mv');
       console.log('✅ Dropped protocol_events_mv table');
     } catch (error) {
       console.log('⚠️ protocol_events_mv table might not exist');

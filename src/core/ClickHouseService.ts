@@ -363,4 +363,32 @@ export class ClickHouseService {
       throw error;
     }
   }
+
+  async executeCommand(query: string): Promise<void> {
+    if (!this.isConnected) {
+      throw new Error('Not connected to ClickHouse');
+    }
+
+    try {
+      await this.client.command({ query });
+    } catch (error) {
+      console.error('❌ Failed to execute command:', error);
+      throw error;
+    }
+  }
+
+  async executeQuery(query: string): Promise<any> {
+    if (!this.isConnected) {
+      throw new Error('Not connected to ClickHouse');
+    }
+
+    try {
+      const result = await this.client.query({ query });
+      const data = await result.json();
+      return data;
+    } catch (error) {
+      console.error('❌ Failed to execute query:', error);
+      throw error;
+    }
+  }
 }

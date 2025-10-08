@@ -49,9 +49,9 @@ async function setupClickHouseCloud(): Promise<void> {
     console.log('\n🧪 Testing data insertion...');
     const testEvent = {
       id: `test-cloud-${Date.now()}`,
-      protocol: 'test-protocol',
-      version: 'v1',
-      eventType: 'test' as any,
+      protocol: 'uniswap-v2' as const,
+      version: 'v2',
+      eventType: 'swap' as const,
       timestamp: Date.now(),
       blockNumber: 12345,
       transactionHash: `0x${Math.random().toString(16).substr(2, 8)}`,
@@ -70,8 +70,13 @@ async function setupClickHouseCloud(): Promise<void> {
         name: 'Test Token 1'
       },
       data: {
-        type: 'test' as any,
-        testData: 'cloud setup test'
+        type: 'swap' as const,
+        sender: `0x${Math.random().toString(16).substr(2, 8)}`,
+        recipient: `0x${Math.random().toString(16).substr(2, 8)}`,
+        amount0In: '1000000000000000000',
+        amount1In: '0',
+        amount0Out: '0',
+        amount1Out: '2000000000000000000'
       }
     };
 
