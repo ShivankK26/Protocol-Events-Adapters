@@ -12,6 +12,18 @@
   resolved "https://registry.yarnpkg.com/@alloc/quick-lru/-/quick-lru-5.2.0.tgz#7bf68b20c0a350f936915fcae06f58e32007ce30"
   integrity sha512-UrcABB+4bUrFABwbluTIBErXwvbsU/V7TZWfmbgJfbkwiBuziS9gxdODUyuiecfdGQ85jglMW6juS3+z5TsKLw==
 
+"@clickhouse/client-common@1.12.1":
+  version "1.12.1"
+  resolved "https://registry.yarnpkg.com/@clickhouse/client-common/-/client-common-1.12.1.tgz#e6900d98316076c4e99f91a95c433dd714c77516"
+  integrity sha512-ccw1N6hB4+MyaAHIaWBwGZ6O2GgMlO99FlMj0B0UEGfjxM9v5dYVYql6FpP19rMwrVAroYs/IgX2vyZEBvzQLg==
+
+"@clickhouse/client@^1.0.0":
+  version "1.12.1"
+  resolved "https://registry.yarnpkg.com/@clickhouse/client/-/client-1.12.1.tgz#6379542c5bfdc227477853945ce6ba7916653eae"
+  integrity sha512-7ORY85rphRazqHzImNXMrh4vsaPrpetFoTWpZYueCO2bbO6PXYDXp/GQ4DgxnGIqbWB/Di1Ai+Xuwq2o7DJ36A==
+  dependencies:
+    "@clickhouse/client-common" "1.12.1"
+
 "@emnapi/core@^1.4.3", "@emnapi/core@^1.5.0":
   version "1.5.0"
   resolved "https://registry.yarnpkg.com/@emnapi/core/-/core-1.5.0.tgz#85cd84537ec989cebb2343606a1ee663ce4edaf0"
