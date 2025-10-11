@@ -1,11 +1,48 @@
 #!/usr/bin/env npx tsx
 
+/**
+ * ClickHouse Cloud Database Viewer Script
+ * 
+ * This script provides comprehensive database inspection and analytics
+ * capabilities for the ClickHouse Cloud database. It displays database
+ * structure, event statistics, recent events, and real-time analytics.
+ * 
+ * Features:
+ * - Database table inspection and structure overview
+ * - Event count statistics and distribution analysis
+ * - Recent events display with detailed information
+ * - Protocol-specific event statistics and analytics
+ * - Real-time analytics queries and performance metrics
+ * - Comprehensive database health and status reporting
+ * 
+ * Usage:
+ *   npm run db:view
+ *   npx tsx src/scripts/view-database.ts
+ * 
+ * Prerequisites:
+ * - ClickHouse Cloud setup completed
+ * - Environment variables configured
+ * - Database contains event data for meaningful analysis
+ */
+
 import { ClickHouseService } from '../core/ClickHouseService';
 import { config } from 'dotenv';
 
-// Load environment variables
+// Load environment variables from .env file
 config();
 
+/**
+ * Main database viewer function
+ * 
+ * Performs comprehensive database inspection including:
+ * 1. Database connection and table structure inspection
+ * 2. Event count statistics and distribution analysis
+ * 3. Recent events display with detailed information
+ * 4. Protocol-specific analytics and performance metrics
+ * 5. Real-time analytics queries and health reporting
+ * 
+ * @throws Error if database connection or query execution fails
+ */
 async function viewDatabase(): Promise<void> {
   console.log('📊 ClickHouse Cloud Database Viewer\n');
 
