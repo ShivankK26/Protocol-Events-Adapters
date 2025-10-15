@@ -1,0 +1,99 @@
+services:
+  # ClickHouse Keeper for metadata management
+  clickhouse-keeper:
+    image: clickhouse/clickhouse-server:latest
+    container_name: clickhouse-keeper
+    hostname: clickhouse-keeper
+    ports:
+      - "2181:2181"
+      - "8126:8126"
+      - "9003:9003"
+      - "9234:9234"
+    volumes:
+      - clickhouse_keeper_data:/var/lib/clickhouse
+      - ./clickhouse-configs/clickhouse-keeper.xml:/etc/clickhouse-server/config.xml
+    environment:
+      - CLICKHOUSE_DB=default
+      - CLICKHOUSE_USER=default
+      - CLICKHOUSE_PASSWORD=
+    command: ["clickhouse-server", "--config-file=/etc/clickhouse-server/config.xml"]
+    networks:
+      - clickhouse-cluster
+    restart: unless-stopped
+
+  # ClickHouse Server 1
+  clickhouse-1:
+    image: clickhouse/clickhouse-server:latest
+    container_name: clickhouse-1
+    hostname: clickhouse-1
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+      - "9009:9009"
+    volumes:
+      - clickhouse_1_data:/var/lib/clickhouse
+      - ./clickhouse-configs/clickhouse-server-1.xml:/etc/clickhouse-server/config.xml
+    environment:
+      - CLICKHOUSE_DB=default
+      - CLICKHOUSE_USER=default
+      - CLICKHOUSE_PASSWORD=
+    command: ["clickhouse-server", "--config-file=/etc/clickhouse-server/config.xml"]
+    networks:
+      - clickhouse-cluster
+    restart: unless-stopped
+
+  # ClickHouse Server 2
+  clickhouse-2:
+    image: clickhouse/clickhouse-server:latest
+    container_name: clickhouse-2
+    hostname: clickhouse-2
+    ports:
+      - "8124:8124"
+      - "9001:9001"
+      - "9010:9010"
+    volumes:
+      - clickhouse_2_data:/var/lib/clickhouse
+      - ./clickhouse-configs/clickhouse-server-2.xml:/etc/clickhouse-server/config.xml
+    environment:
+      - CLICKHOUSE_DB=default
+      - CLICKHOUSE_USER=default
+      - CLICKHOUSE_PASSWORD=
+    command: ["clickhouse-server", "--config-file=/etc/clickhouse-server/config.xml"]
+    networks:
+      - clickhouse-cluster
+    restart: unless-stopped
+
+  # ClickHouse Server 3
+  clickhouse-3:
+    image: clickhouse/clickhouse-server:latest
+    container_name: clickhouse-3
+    hostname: clickhouse-3
+    ports:
+      - "8125:8125"
+      - "9002:9002"
+      - "9011:9011"
+    volumes:
+      - clickhouse_3_data:/var/lib/clickhouse
+      - ./clickhouse-configs/clickhouse-server-3.xml:/etc/clickhouse-server/config.xml
+    environment:
+      - CLICKHOUSE_DB=default
+      - CLICKHOUSE_USER=default
+      - CLICKHOUSE_PASSWORD=
+    command: ["clickhouse-server", "--config-file=/etc/clickhouse-server/config.xml"]
+    networks:
+      - clickhouse-cluster
+    restart: unless-stopped
+
+volumes:
+  clickhouse_keeper_data:
+    driver: local
+  clickhouse_1_data:
+    driver: local
+  clickhouse_2_data:
+    driver: local
+  clickhouse_3_data:
+    driver: local
+
+networks:
+  clickhouse-cluster:
+    driver: bridge

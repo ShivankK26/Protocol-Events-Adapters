@@ -1,10 +1,10 @@
 #!/usr/bin/env npx tsx
 
 /**
- * ClickHouse Cloud Database Viewer Script
+ * ClickHouse Database Viewer Script
  * 
  * This script provides comprehensive database inspection and analytics
- * capabilities for the ClickHouse Cloud database. It displays database
+ * capabilities for the ClickHouse database. It displays database
  * structure, event statistics, recent events, and real-time analytics.
  * 
  * Features:
@@ -20,7 +20,7 @@
  *   npx tsx src/scripts/view-database.ts
  * 
  * Prerequisites:
- * - ClickHouse Cloud setup completed
+ * - ClickHouse cluster setup completed
  * - Environment variables configured
  * - Database contains event data for meaningful analysis
  */
@@ -44,22 +44,24 @@ config();
  * @throws Error if database connection or query execution fails
  */
 async function viewDatabase(): Promise<void> {
-  console.log('📊 ClickHouse Cloud Database Viewer\n');
+  console.log('📊 ClickHouse Database Viewer\n');
 
   // Configuration
   const clickhouseConfig = {
     host: process.env.CLICKHOUSE_HOST || 'localhost',
-    port: parseInt(process.env.CLICKHOUSE_PORT || '8443'),
+    port: parseInt(process.env.CLICKHOUSE_PORT || '8123'),
     username: process.env.CLICKHOUSE_USERNAME || 'default',
     password: process.env.CLICKHOUSE_PASSWORD || '',
     database: process.env.CLICKHOUSE_DATABASE || 'default',
-    secure: process.env.CLICKHOUSE_SECURE === 'true' || false
+    secure: process.env.CLICKHOUSE_SECURE === 'true' || false,
+    clusterName: process.env.CLICKHOUSE_CLUSTER_NAME || 'protocol_cluster',
+    isCluster: process.env.CLICKHOUSE_IS_CLUSTER === 'true' || false
   };
 
   try {
     const clickhouseService = new ClickHouseService(clickhouseConfig);
     await clickhouseService.connect();
-    console.log('✅ Connected to ClickHouse Cloud\n');
+    console.log('✅ Connected to ClickHouse\n');
 
     // Show tables
     console.log('📋 Tables in database:');

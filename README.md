@@ -1,6 +1,6 @@
 # 🚀 Protocol Event Adapters
 
-A comprehensive blockchain event monitoring system that captures, standardizes, and stores protocol events in real-time using ClickHouse Cloud for analytics and data persistence.
+A comprehensive blockchain event monitoring system that captures, standardizes, and stores protocol events in real-time using ClickHouse (local cluster or cloud) for analytics and data persistence.
 
 Example of the table structure - 
 
@@ -36,10 +36,12 @@ Example of the table structure -
 
 ### ☁️ Data & Analytics
 - **🗄️ ClickHouse Integration**: Real-time data storage and analytics
+- **🏗️ Local Cluster Support**: 3-replica ClickHouse cluster with ClickHouse Keeper
 - **☁️ Cloud-Ready**: ClickHouse Cloud support for scalable data processing
 - **📈 Real-time Analytics**: Materialized views for instant insights
 - **🔍 Advanced Querying**: SQL-based analytics and reporting
 - **📊 Data Visualization**: Built-in dashboard and monitoring tools
+- **🔄 Data Replication**: Automatic data replication across cluster nodes
 
 ---
 
@@ -49,11 +51,11 @@ Example of the table structure -
 ```
 ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
 │   Blockchain    │    │   Event Listener │    │   ClickHouse    │
-│   Networks      │───▶│   & Processor    │───▶│     Cloud       │
+│   Networks      │───▶│   & Processor    │───▶│   Cluster/Cloud │
 │                 │    │                  │    │                 │
 │ • Ethereum      │    │ • Multi-Protocol │    │ • Real-time     │
 │ • BSC           │    │ • Standardization│    │ • Analytics     │
-│ • WebSocket     │    │ • BigInt Handling│    │ • Materialized  │
+│ • WebSocket     │    │ • BigInt Handling│    │ • Replication   │
 └─────────────────┘    └──────────────────┘    └─────────────────┘
 ```
 
@@ -96,7 +98,8 @@ yarn db:reset
 ### Prerequisites
 - **Node.js** 18+ 
 - **Yarn** package manager
-- **ClickHouse Cloud** account
+- **Docker** and **Docker Compose** (for local cluster)
+- **ClickHouse Cloud** account (optional, for cloud setup)
 - **RPC Endpoints** for Ethereum and BSC
 
 ### Step-by-Step Setup
@@ -111,8 +114,17 @@ yarn install
 cp env.example .env
 ```
 
-#### 3. **ClickHouse Cloud Setup**
+#### 3. **ClickHouse Setup (Choose One)**
+
+**Option A: Local ClickHouse Cluster (Recommended)**
 ```bash
+# Setup local ClickHouse cluster
+yarn clickhouse:setup
+```
+
+**Option B: ClickHouse Cloud**
+```bash
+# Setup ClickHouse Cloud (requires cloud account)
 yarn clickhouse:cloud-setup
 ```
 
@@ -135,23 +147,35 @@ Create a `.env` file with your credentials:
 # ===========================================
 
 # Ethereum Mainnet
-ETHEREUM_RPC_URL=https://eth-mainnet.g.alchemy.com/v2/YOUR_API_KEY
-ETHEREUM_WS_URL=wss://eth-mainnet.g.alchemy.com/v2/YOUR_API_KEY
+ETHEREUM_RPC_URL=https://eth.llamarpc.com
+ETHEREUM_WS_URL=wss://eth.llamarpc.com
 
 # BSC Mainnet  
 BSC_RPC_URL=https://bsc-dataseed.binance.org/
 BSC_WS_URL=wss://bsc-ws-node.nariox.org:443/ws
 
 # ===========================================
-# CLICKHOUSE CLOUD CONFIGURATION
+# CLICKHOUSE CONFIGURATION
 # ===========================================
 
-CLICKHOUSE_HOST=abcdef.azure.clickhouse.cloud
-CLICKHOUSE_PORT=8443
+# For Local ClickHouse Cluster (Default)
+CLICKHOUSE_HOST=localhost
+CLICKHOUSE_PORT=8123
 CLICKHOUSE_USERNAME=default
-CLICKHOUSE_PASSWORD=your_password_here
+CLICKHOUSE_PASSWORD=
 CLICKHOUSE_DATABASE=default
-CLICKHOUSE_SECURE=true
+CLICKHOUSE_SECURE=false
+CLICKHOUSE_CLUSTER_NAME=protocol_cluster
+CLICKHOUSE_IS_CLUSTER=false
+
+# For ClickHouse Cloud (Alternative)
+# CLICKHOUSE_HOST=abcdef.azure.clickhouse.cloud
+# CLICKHOUSE_PORT=8443
+# CLICKHOUSE_USERNAME=default
+# CLICKHOUSE_PASSWORD=your_password_here
+# CLICKHOUSE_DATABASE=default
+# CLICKHOUSE_SECURE=true
+# CLICKHOUSE_IS_CLUSTER=false
 ```
 
 ### 🔧 Custom Configuration
@@ -180,7 +204,25 @@ const listener = new ProtocolListenerApp(config);
 | `yarn data:ingestion` | **Main command** - Start blockchain monitoring | `yarn data:ingestion` |
 | `yarn db:view` | View database contents and statistics | `yarn db:view` |
 | `yarn db:reset` | Clear all data from database | `yarn db:reset` |
-| `yarn clickhouse:cloud-setup` | Initialize ClickHouse schema (one-time) | `yarn clickhouse:cloud-setup` |
+
+### 🏗️ **ClickHouse Setup Commands**
+
+| Command | Description | Usage |
+|---------|-------------|-------|
+| `yarn clickhouse:setup` | Setup local ClickHouse cluster | `yarn clickhouse:setup` |
+| `yarn cluster:start` | Start ClickHouse cluster | `yarn cluster:start` |
+| `yarn cluster:stop` | Stop ClickHouse cluster | `yarn cluster:stop` |
+| `yarn cluster:logs` | View cluster logs | `yarn cluster:logs` |
+| `yarn cluster:status` | Check cluster status | `yarn cluster:status` |
+| `yarn cluster:verify` | Verify cluster health and replication | `yarn cluster:verify` |
+
+### 🔍 **Blockchain Listener Commands**
+
+| Command | Description | Usage |
+|---------|-------------|-------|
+| `yarn listener:ethereum` | Start Ethereum event listener | `yarn listener:ethereum` |
+| `yarn listener:bsc` | Start BSC event listener | `yarn listener:bsc` |
+| `yarn listener:all` | Start all blockchain listeners | `yarn listener:all` |
 
 ### 🛠️ **Development Commands**
 
@@ -188,7 +230,8 @@ const listener = new ProtocolListenerApp(config);
 |---------|-------------|-------|
 | `yarn dev` | Start Next.js development server | `yarn dev` |
 | `yarn build` | Build the application | `yarn build` |
-| `yarn test:integration` | Run integration tests | `yarn test:integration` |
+| `yarn start` | Start production server | `yarn start` |
+| `yarn lint` | Run ESLint | `yarn lint` |
 
 ### 📊 **Database Commands**
 
@@ -196,22 +239,43 @@ const listener = new ProtocolListenerApp(config);
 |---------|-------------|-------|
 | `yarn db:view` | View all events and statistics | `yarn db:view` |
 | `yarn db:reset` | Clear all data (use with caution) | `yarn db:reset` |
-| `yarn clickhouse:cloud-setup` | Setup database schema | `yarn clickhouse:cloud-setup` |
 
-### 🔍 **Monitoring Commands**
+### 🔍 **Quick Start Commands**
 
 ```bash
-# Start real-time monitoring
+# 1. Setup environment
+cp env.example .env
+
+# 2. Setup ClickHouse cluster
+yarn clickhouse:setup
+
+# 3. Start monitoring
 yarn data:ingestion
 
-# Check database status
+# 4. View data
 yarn db:view
 
-# Reset database (if needed)
-yarn db:reset
+# 5. Start web interface
+yarn dev
+```
 
-# Setup database (one-time)
-yarn clickhouse:cloud-setup
+### 🏗️ **Cluster Management Commands**
+
+```bash
+# Start cluster
+yarn cluster:start
+
+# Check cluster status
+yarn cluster:status
+
+# View cluster logs
+yarn cluster:logs
+
+# Verify cluster health
+yarn cluster:verify
+
+# Stop cluster
+yarn cluster:stop
 ```
 
 ### 📈 **Analytics Commands**
@@ -222,6 +286,122 @@ yarn db:view
 
 # Check specific protocol
 # (Use ClickHouse console for advanced queries)
+```
+
+### 🗄️ **Database Access Commands**
+
+| Command | Description | Usage |
+|---------|-------------|-------|
+| `yarn db:view` | **Quick database viewer** - Shows events, stats, and analytics | `yarn db:view` |
+| `yarn dev` | **Web interface** - Start Next.js dashboard at localhost:3000 | `yarn dev` |
+
+### 🔍 **Advanced Database Access**
+
+#### **ClickHouse Console Access**
+```bash
+# Connect to ClickHouse directly
+docker exec -it clickhouse-single clickhouse-client
+
+# Then run SQL queries:
+SHOW TABLES;
+SELECT count() FROM protocol_events;
+SELECT * FROM protocol_events ORDER BY timestamp DESC LIMIT 10;
+SELECT protocol, count() as event_count FROM protocol_events GROUP BY protocol;
+EXIT;
+```
+
+#### **HTTP API Access**
+```bash
+# Test connection
+curl http://localhost:8123
+
+# Run queries via HTTP
+curl -X POST 'http://localhost:8123' -d 'SELECT count() FROM protocol_events'
+curl -X POST 'http://localhost:8123' -d 'SELECT * FROM protocol_events LIMIT 5'
+```
+
+#### **Database Viewing Options**
+
+**1. Quick Overview (Recommended)**
+```bash
+yarn db:view
+```
+
+**2. Web Dashboard**
+```bash
+yarn dev
+# Open http://localhost:3000 in your browser
+```
+
+**3. Direct SQL Access**
+```bash
+docker exec -it clickhouse-single clickhouse-client
+```
+
+**4. HTTP API Queries**
+```bash
+curl -X POST 'http://localhost:8123' -d 'YOUR_SQL_QUERY'
+```
+
+### 📊 **What You'll See When Viewing the Database**
+
+When you run `yarn db:view`, you'll see output like this:
+
+```
+📊 ClickHouse Database Viewer
+
+✅ Connected to ClickHouse
+
+📋 Tables in database:
+=====================
+  - protocol_events
+
+📊 Event Statistics:
+===================
+Total events: 100
+
+🕒 Recent Events (last 10):
+==========================
+  1. uniswap-v2 swap
+     Pool: 0x0d4a11d5EEaaC28EC3F61d100daF4d40471f1852
+     Tokens: WETH/USDT
+     Block: 23581685 | Time: 2025-10-15 07:45:54
+
+  2. uniswap-v2 sync
+     Pool: 0xB4e16d0168e52d35CaCD2c6185b44281Ec28C9Dc
+     Tokens: USDC/WETH
+     Block: 23581685 | Time: 2025-10-15 07:45:54
+
+📈 Event Statistics by Protocol:
+================================
+  uniswap-v2 sync: 59 events
+  uniswap-v2 swap: 41 events
+
+📊 Real-time Analytics:
+======================
+  uniswap-v2 swap at 2025-10-15 07:00:00:
+    Events: 41, Pools: 3, Transactions: 40
+  uniswap-v2 sync at 2025-10-15 07:00:00:
+    Events: 59, Pools: 3, Transactions: 56
+
+✅ Database view completed
+```
+
+### 🎯 **Quick Database Viewing Guide**
+
+```bash
+# 1. View database overview
+yarn db:view
+
+# 2. Start web dashboard
+yarn dev
+# Then open http://localhost:3000
+
+# 3. Direct SQL access
+docker exec -it clickhouse-single clickhouse-client
+
+# 4. Test connection
+curl http://localhost:8123
 ```
 
 ---
@@ -333,12 +513,14 @@ The system provides comprehensive monitoring:
 - **📈 Real-time Dashboards**: Live event monitoring and statistics
 - **🗄️ Data Export**: Export data for external analysis
 
-### 🎯 **ClickHouse Cloud Integration**
+### 🎯 **ClickHouse Integration**
 
+- **🏗️ Local Cluster**: 3-replica cluster with ClickHouse Keeper for coordination
 - **☁️ Cloud Scalability**: Handles high-volume event processing
 - **📊 Real-time Analytics**: Materialized views for instant insights
 - **🔍 Advanced Querying**: SQL-based analytics and reporting
 - **📈 Data Visualization**: Built-in dashboard and monitoring tools
+- **🔄 Data Replication**: Automatic replication across cluster nodes
 
 ## 📁 Project Structure
 
@@ -359,11 +541,14 @@ protocol-adapters/
 │       ├── run-data-ingestion.ts     # Main data ingestion script
 │       ├── view-database.ts          # Database viewer script
 │       ├── reset-database.ts         # Database reset script
-│       └── setup-clickhouse-cloud.ts # ClickHouse setup script
+│       ├── setup-clickhouse-cluster.ts # ClickHouse cluster setup script
+│       └── verify-cluster.ts         # Cluster verification script
 ├── 📄 package.json                   # Dependencies and scripts
 ├── 📄 env.example                    # Environment variables template
 ├── 📄 README.md                      # This documentation
-└── 📄 clickhouse-cloud-setup.md     # ClickHouse Cloud setup guide
+├── 📄 docker-compose.cluster.yml     # ClickHouse cluster configuration
+├── 📄 CLUSTER_SETUP.md              # ClickHouse cluster setup guide
+└── 📁 clickhouse-configs/            # ClickHouse configuration files
 ```
 
 ### 🏗️ **Architecture Components**
@@ -375,5 +560,95 @@ protocol-adapters/
 | **DataIngestionService** | Data orchestration | Event buffering, batch processing |
 | **Protocol Adapters** | Protocol-specific logic | Uniswap V2/V3, PancakeSwap V2 |
 | **UI Components** | Event visualization | Real-time display, statistics |
+
+---
+
+## 🛠️ Troubleshooting
+
+### 🔧 **Common Issues**
+
+#### **ClickHouse Connection Issues**
+```bash
+# Check if ClickHouse is running
+docker ps | grep clickhouse
+
+# Check ClickHouse logs
+docker logs clickhouse-single
+
+# Restart ClickHouse
+docker restart clickhouse-single
+```
+
+#### **Authentication Errors**
+```bash
+# Ensure .env file has correct settings
+cat .env
+
+# Restart ClickHouse with proper environment
+docker stop clickhouse-single
+docker rm clickhouse-single
+docker run -d --name clickhouse-single -p 8123:8123 -p 9000:9000 -e CLICKHOUSE_USER=default -e CLICKHOUSE_PASSWORD= clickhouse/clickhouse-server:latest
+```
+
+#### **Cluster Issues**
+```bash
+# Check cluster status
+yarn cluster:status
+
+# View cluster logs
+yarn cluster:logs
+
+# Restart cluster
+yarn cluster:stop
+yarn cluster:start
+```
+
+### 🏗️ **Cluster Management**
+
+#### **Starting the Cluster**
+```bash
+# Start the full cluster
+yarn clickhouse:setup
+
+# Or start manually
+yarn cluster:start
+```
+
+#### **Verifying Cluster Health**
+```bash
+# Check cluster status
+yarn cluster:status
+
+# Verify replication
+yarn cluster:verify
+
+# View cluster logs
+yarn cluster:logs
+```
+
+#### **Stopping the Cluster**
+```bash
+# Stop cluster
+yarn cluster:stop
+
+# Stop and remove volumes
+docker-compose -f docker-compose.cluster.yml down -v
+```
+
+### 🔍 **Debugging Commands**
+
+```bash
+# Test ClickHouse connection
+curl http://localhost:8123
+
+# View database contents
+yarn db:view
+
+# Check environment variables
+cat .env
+
+# View application logs
+yarn data:ingestion
+```
 
 ---
