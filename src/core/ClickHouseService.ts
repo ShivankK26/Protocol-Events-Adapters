@@ -31,12 +31,22 @@ export class ClickHouseService {
    */
   constructor(private config: ClickHouseConfig) {
     const protocol = config.secure ? 'https' : 'http';
-    this.client = createClient({
-      host: `${protocol}://${config.host}:${config.port}`,
+    
+    // Handle empty password case - don't include password in config if it's empty
+    const clientConfig: any = {
+      url: `${protocol}://${config.host}:${config.port}`,
       username: config.username || 'default',
-      password: config.password || '',
       database: config.database || 'default',
-    });
+      request_timeout: 60000,
+      max_open_connections: 1,
+    };
+    
+    // Only add password if it's not empty
+    if (config.password && config.password.trim() !== '') {
+      clientConfig.password = config.password;
+    }
+    
+    this.client = createClient(clientConfig);
   }
 
   /**
@@ -48,14 +58,26 @@ export class ClickHouseService {
    * @throws Error if connection fails
    */
   async connect(): Promise<void> {
-    try {
-      // Test connection with ping request
-      await this.client.ping();
-      this.isConnected = true;
-      console.log('✅ Connected to ClickHouse');
-    } catch (error) {
-      console.error('❌ Failed to connect to ClickHouse:', error);
-      throw error;
+    let retryCount = 0;
+    const maxRetries = 5;
+    
+    while (retryCount < maxRetries) {
+      try {
+        // Test connection with ping request
+        await this.client.ping();
+        this.isConnected = true;
+        console.log('✅ Connected to ClickHouse');
+        return;
+      } catch (error) {
+        retryCount++;
+        if (retryCount < maxRetries) {
+          console.log(`⚠️ Connection attempt ${retryCount} failed, retrying in 5 seconds...`);
+          await new Promise(resolve => setTimeout(resolve, 5000));
+        } else {
+          console.error('❌ Failed to connect to ClickHouse after', maxRetries, 'attempts:', error);
+          throw error;
+        }
+      }
     }
   }
 

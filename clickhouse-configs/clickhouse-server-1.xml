@@ -35,14 +35,14 @@
                 <internal_replication>true</internal_replication>
                 <replica>
                     <host>clickhouse-2</host>
-                    <port>9000</port>
+                    <port>9001</port>
                 </replica>
             </shard>
             <shard>
                 <internal_replication>true</internal_replication>
                 <replica>
                     <host>clickhouse-3</host>
-                    <port>9000</port>
+                    <port>9002</port>
                 </replica>
             </shard>
         </protocol_cluster>

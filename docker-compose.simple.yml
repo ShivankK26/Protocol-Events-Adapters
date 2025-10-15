@@ -1,0 +1,22 @@
+services:
+  # Simple ClickHouse instance for testing
+  clickhouse-simple:
+    image: clickhouse/clickhouse-server:latest
+    container_name: clickhouse-simple
+    hostname: clickhouse-simple
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    volumes:
+      - clickhouse_simple_data:/var/lib/clickhouse
+      - ./clickhouse-configs/clickhouse-server-simple.xml:/etc/clickhouse-server/config.xml
+    environment:
+      - CLICKHOUSE_DB=default
+      - CLICKHOUSE_USER=default
+      - CLICKHOUSE_PASSWORD=
+    command: ["clickhouse-server", "--config-file=/etc/clickhouse-server/config.xml"]
+    restart: unless-stopped
+
+volumes:
+  clickhouse_simple_data:
+    driver: local

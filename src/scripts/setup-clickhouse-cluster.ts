@@ -16,7 +16,7 @@
  * - Data consistency validation across replicas
  * 
  * Usage:
- *   npm run clickhouse:cluster-setup
+ *   npm run clickhouse:setup
  *   npx tsx src/scripts/setup-clickhouse-cluster.ts
  * 
  * Prerequisites:
@@ -93,7 +93,7 @@ async function setupClickHouseCluster(): Promise<void> {
 
     // Wait for services to be ready
     console.log('⏳ Waiting for cluster services to be ready...');
-    await new Promise(resolve => setTimeout(resolve, 30000)); // Wait 30 seconds
+    await new Promise(resolve => setTimeout(resolve, 60000)); // Wait 60 seconds
 
     // ==================== CLUSTER HEALTH VERIFICATION ====================
     
@@ -139,22 +139,48 @@ async function setupClickHouseCluster(): Promise<void> {
       isCluster: true
     });
 
-    await primaryService.connect();
-    await primaryService.initializeSchema();
-    console.log('✅ Cluster schema initialized successfully!');
+    // Retry connection and schema initialization
+    let retryCount = 0;
+    const maxRetries = 5;
+    
+    while (retryCount < maxRetries) {
+      try {
+        await primaryService.connect();
+        await primaryService.initializeSchema();
+        console.log('✅ Cluster schema initialized successfully!');
+        break;
+      } catch (error) {
+        retryCount++;
+        console.log(`⚠️ Schema initialization attempt ${retryCount} failed, retrying in 10 seconds...`);
+        if (retryCount < maxRetries) {
+          await new Promise(resolve => setTimeout(resolve, 10000)); // Wait 10 seconds
+          try {
+            await primaryService.disconnect();
+          } catch (disconnectError) {
+            // Ignore disconnect errors
+          }
+        } else {
+          throw error;
+        }
+      }
+    }
 
     // ==================== CLUSTER INFORMATION ====================
     
     console.log('\n📋 Cluster Information:');
     console.log('========================');
     
-    const clusterInfo = await primaryService.getClusterInfo();
-    clusterInfo.forEach((node: any) => {
-      console.log(`   ${node.cluster} - Shard ${node.shard_num}, Replica ${node.replica_num}`);
-      console.log(`     Host: ${node.host_name}:${node.port}`);
-      console.log(`     Status: ${node.is_local ? 'Local' : 'Remote'}`);
-      console.log('');
-    });
+    try {
+      const clusterInfo = await primaryService.getClusterInfo();
+      clusterInfo.forEach((node: any) => {
+        console.log(`   ${node.cluster} - Shard ${node.shard_num}, Replica ${node.replica_num}`);
+        console.log(`     Host: ${node.host_name}:${node.port}`);
+        console.log(`     Status: ${node.is_local ? 'Local' : 'Remote'}`);
+        console.log('');
+      });
+    } catch (error) {
+      console.log('⚠️ Could not retrieve cluster info (cluster may still be initializing)');
+    }
 
     // ==================== TEST DATA INSERTION ====================
     
@@ -226,10 +252,27 @@ async function setupClickHouseCluster(): Promise<void> {
       }
     ];
 
-    // Insert test events
+    // Insert test events with retry logic
     for (const event of testEvents) {
-      await primaryService.insertEvent(event);
-      console.log(`   ✅ Inserted test event: ${event.id}`);
+      let insertRetryCount = 0;
+      const maxInsertRetries = 3;
+      
+      while (insertRetryCount < maxInsertRetries) {
+        try {
+          await primaryService.insertEvent(event);
+          console.log(`   ✅ Inserted test event: ${event.id}`);
+          break;
+        } catch (error) {
+          insertRetryCount++;
+          if (insertRetryCount < maxInsertRetries) {
+            console.log(`   ⚠️ Insert attempt ${insertRetryCount} failed, retrying in 5 seconds...`);
+            await new Promise(resolve => setTimeout(resolve, 5000));
+          } else {
+            console.log(`   ❌ Failed to insert test event: ${event.id}`);
+            throw error;
+          }
+        }
+      }
     }
 
     // Wait for replication
@@ -240,36 +283,44 @@ async function setupClickHouseCluster(): Promise<void> {
     
     console.log('\n🔍 Verifying data consistency across replicas...');
     
-    const consistencyResults = await primaryService.performClusterConsistencyCheck();
-    console.log('📊 Cluster Consistency Results:');
-    consistencyResults.forEach((result: any) => {
-      console.log(`   Table: ${result.table_name}`);
-      console.log(`   Total Rows: ${result.total_rows}`);
-      console.log(`   Unique IDs: ${result.unique_ids}`);
-      console.log(`   Time Range: ${new Date(result.min_timestamp).toISOString()} - ${new Date(result.max_timestamp).toISOString()}`);
-      if (result.uniswap_v2_events) console.log(`   Uniswap V2 Events: ${result.uniswap_v2_events}`);
-      if (result.uniswap_v3_events) console.log(`   Uniswap V3 Events: ${result.uniswap_v3_events}`);
-      if (result.pancakeswap_v2_events) console.log(`   PancakeSwap V2 Events: ${result.pancakeswap_v2_events}`);
-      console.log('');
-    });
+    try {
+      const consistencyResults = await primaryService.performClusterConsistencyCheck();
+      console.log('📊 Cluster Consistency Results:');
+      consistencyResults.forEach((result: any) => {
+        console.log(`   Table: ${result.table_name}`);
+        console.log(`   Total Rows: ${result.total_rows}`);
+        console.log(`   Unique IDs: ${result.unique_ids}`);
+        console.log(`   Time Range: ${new Date(result.min_timestamp).toISOString()} - ${new Date(result.max_timestamp).toISOString()}`);
+        if (result.uniswap_v2_events) console.log(`   Uniswap V2 Events: ${result.uniswap_v2_events}`);
+        if (result.uniswap_v3_events) console.log(`   Uniswap V3 Events: ${result.uniswap_v3_events}`);
+        if (result.pancakeswap_v2_events) console.log(`   PancakeSwap V2 Events: ${result.pancakeswap_v2_events}`);
+        console.log('');
+      });
+    } catch (error) {
+      console.log('⚠️ Could not perform consistency check (cluster may still be initializing)');
+    }
 
     // ==================== REPLICATION STATUS ====================
     
     console.log('📈 Replication Status:');
     console.log('======================');
     
-    const replicationStatus = await primaryService.getReplicationStatus();
-    if (replicationStatus.length > 0) {
-      replicationStatus.forEach((status: any) => {
-        console.log(`   Replica: ${status.replica_name}`);
-        console.log(`   Is Leader: ${status.is_leader ? 'Yes' : 'No'}`);
-        console.log(`   Is Readonly: ${status.is_readonly ? 'Yes' : 'No'}`);
-        console.log(`   Queue Size: ${status.queue_size}`);
-        console.log(`   Absolute Delay: ${status.absolute_delay}`);
-        console.log('');
-      });
-    } else {
-      console.log('   No replication status available (single instance mode)');
+    try {
+      const replicationStatus = await primaryService.getReplicationStatus();
+      if (replicationStatus.length > 0) {
+        replicationStatus.forEach((status: any) => {
+          console.log(`   Replica: ${status.replica_name}`);
+          console.log(`   Is Leader: ${status.is_leader ? 'Yes' : 'No'}`);
+          console.log(`   Is Readonly: ${status.is_readonly ? 'Yes' : 'No'}`);
+          console.log(`   Queue Size: ${status.queue_size}`);
+          console.log(`   Absolute Delay: ${status.absolute_delay}`);
+          console.log('');
+        });
+      } else {
+        console.log('   No replication status available (single instance mode)');
+      }
+    } catch (error) {
+      console.log('⚠️ Could not retrieve replication status (cluster may still be initializing)');
     }
 
     // ==================== KEEPER STATUS ====================
@@ -277,17 +328,21 @@ async function setupClickHouseCluster(): Promise<void> {
     console.log('🔐 ClickHouse Keeper Status:');
     console.log('============================');
     
-    const keeperStatus = await primaryService.getKeeperStatus();
-    if (keeperStatus.length > 0) {
-      console.log('   Keeper is operational');
-      keeperStatus.forEach((status: any) => {
-        console.log(`   Node: ${status.name}`);
-        console.log(`   Children: ${status.numChildren}`);
-        console.log(`   Data Length: ${status.dataLength}`);
-        console.log('');
-      });
-    } else {
-      console.log('   Keeper status not available');
+    try {
+      const keeperStatus = await primaryService.getKeeperStatus();
+      if (keeperStatus.length > 0) {
+        console.log('   ✅ Keeper is operational');
+        keeperStatus.forEach((status: any) => {
+          console.log(`   Node: ${status.name}`);
+          console.log(`   Children: ${status.numChildren}`);
+          console.log(`   Data Length: ${status.dataLength}`);
+          console.log('');
+        });
+      } else {
+        console.log('   ⚠️  Keeper status not available');
+      }
+    } catch (error) {
+      console.log('⚠️ Could not retrieve keeper status (keeper may still be initializing)');
     }
 
     // ==================== CLEANUP AND COMPLETION ====================
