@@ -247,7 +247,8 @@ async function setupClickHouseCluster(): Promise<void> {
           sender: `0x${Math.random().toString(16).substr(2, 8)}`,
           owner: `0x${Math.random().toString(16).substr(2, 8)}`,
           amount0: '1000000000000000000',
-          amount1: '2000000000000000000'
+          amount1: '2000000000000000000',
+          liquidity: '1000000000000000000000'
         }
       }
     ];
