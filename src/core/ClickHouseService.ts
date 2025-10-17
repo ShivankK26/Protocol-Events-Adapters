@@ -2,18 +2,16 @@ import { ClickHouseClient, createClient } from '@clickhouse/client';
 import { StandardizedEvent, FactoryEvent } from '../types/schemas';
 
 /**
- * Configuration interface for ClickHouse connection
- * Defines the connection parameters for ClickHouse Cloud, self-hosted instances, or cluster
+ * Configuration interface for ClickHouse cluster connection
+ * Defines the connection parameters for local ClickHouse cluster
  */
 export interface ClickHouseConfig {
-  host: string;           // ClickHouse server hostname
-  port: number;           // ClickHouse server port
+  host: string;           // ClickHouse cluster hostname
+  port: number;           // ClickHouse cluster port
   username?: string;      // Database username (defaults to 'default')
   password?: string;      // Database password
   database?: string;      // Database name (defaults to 'default')
-  secure?: boolean;       // Whether to use HTTPS connection
-  clusterName?: string;   // Cluster name for distributed operations
-  isCluster?: boolean;    // Whether this is a cluster setup
+  clusterName: string;    // Cluster name for distributed operations
 }
 
 
@@ -25,16 +23,14 @@ export class ClickHouseService {
    * Constructor for ClickHouseService
    * 
    * Initializes the ClickHouse client with the provided configuration.
-   * Supports both HTTP and HTTPS connections for flexibility.
+   * Uses HTTP connections for local ClickHouse cluster.
    * 
-   * @param config - ClickHouse connection configuration
+   * @param config - ClickHouse cluster connection configuration
    */
   constructor(private config: ClickHouseConfig) {
-    const protocol = config.secure ? 'https' : 'http';
-    
     // Handle empty password case - don't include password in config if it's empty
     const clientConfig: any = {
-      url: `${protocol}://${config.host}:${config.port}`,
+      url: `http://${config.host}:${config.port}`,
       username: config.username || 'default',
       database: config.database || 'default',
       request_timeout: 60000,
@@ -96,16 +92,16 @@ export class ClickHouseService {
   }
 
   /**
-   * Initializes the ClickHouse database schema
+   * Initializes the ClickHouse cluster database schema
    * 
    * Creates the necessary tables, materialized views, and indexes for optimal
-   * performance when storing and querying blockchain event data.
+   * performance when storing and querying blockchain event data in a cluster.
    * 
    * Schema Components:
-   * 1. Main Events Table: Stores all blockchain events with optimized structure
+   * 1. Main Events Table: Stores all blockchain events with ReplicatedMergeTree engine
    * 2. Materialized View: Pre-computed analytics for real-time insights
    * 3. Indexes: Fast lookups on pool addresses, transaction hashes, and tokens
-   * 4. Distributed Table: For cluster operations (if cluster is configured)
+   * 4. Distributed Table: For cluster operations across all nodes
    * 
    * Performance Optimizations:
    * - ReplicatedMergeTree engine for cluster replication
@@ -121,13 +117,11 @@ export class ClickHouseService {
     }
 
     try {
-      const clusterName = this.config.clusterName || 'protocol_cluster';
-      const isCluster = this.config.isCluster || false;
+      const clusterName = this.config.clusterName;
 
-      // Define comprehensive schema statements for optimal performance
+      // Define comprehensive schema statements for cluster performance
       const schemaStatements = [
-        // Create the main events table with optimized structure
-        // Use ReplicatedMergeTree for cluster, MergeTree for single instance
+        // Create the main events table with ReplicatedMergeTree for cluster
         `CREATE TABLE IF NOT EXISTS protocol_events (
           id String,
           protocol String,
@@ -151,9 +145,7 @@ export class ClickHouseService {
           gas_price String,
           fee String,
           created_at DateTime DEFAULT now()
-        ) ENGINE = ${isCluster ? 'ReplicatedMergeTree' : 'MergeTree'}(
-          ${isCluster ? `'/clickhouse/tables/protocol_events/{shard}', '{replica}'` : ''}
-        )
+        ) ENGINE = ReplicatedMergeTree('/clickhouse/tables/protocol_events/{shard}', '{replica}')
         PARTITION BY toYYYYMM(toDateTime(timestamp / 1000))
         ORDER BY (protocol, event_type, block_number, transaction_hash, log_index)
         SETTINGS index_granularity = 8192`,
@@ -176,17 +168,12 @@ export class ClickHouseService {
         // Create bloom filter indexes for fast lookups on common query patterns
         `CREATE INDEX IF NOT EXISTS idx_protocol_events_pool_address ON protocol_events (pool_address) TYPE bloom_filter GRANULARITY 1`,
         `CREATE INDEX IF NOT EXISTS idx_protocol_events_tx_hash ON protocol_events (transaction_hash) TYPE bloom_filter GRANULARITY 1`,
-        `CREATE INDEX IF NOT EXISTS idx_protocol_events_tokens ON protocol_events (token0_address, token1_address) TYPE bloom_filter GRANULARITY 1`
-      ];
+        `CREATE INDEX IF NOT EXISTS idx_protocol_events_tokens ON protocol_events (token0_address, token1_address) TYPE bloom_filter GRANULARITY 1`,
 
-      // Add distributed table creation for cluster setup
-      if (isCluster) {
-        schemaStatements.push(
-          // Create distributed table for cluster operations
-          `CREATE TABLE IF NOT EXISTS protocol_events_distributed AS protocol_events
-          ENGINE = Distributed(${clusterName}, default, protocol_events, rand())`
-        );
-      }
+        // Create distributed table for cluster operations
+        `CREATE TABLE IF NOT EXISTS protocol_events_distributed AS protocol_events
+        ENGINE = Distributed(${clusterName}, default, protocol_events, rand())`
+      ];
 
       // Execute each schema statement with error handling
       for (const statement of schemaStatements) {
@@ -198,7 +185,7 @@ export class ClickHouseService {
         }
       }
 
-      console.log('✅ ClickHouse schema initialized');
+      console.log('✅ ClickHouse cluster schema initialized');
     } catch (error) {
       console.error('❌ Failed to initialize schema:', error);
       throw error;
@@ -269,10 +256,9 @@ export class ClickHouseService {
       };
 
       // Insert the event data using JSONEachRow format for efficiency
-      // Use distributed table for cluster, regular table for single instance
-      const tableName = this.config.isCluster ? 'protocol_events_distributed' : 'protocol_events';
+      // Use distributed table for cluster operations
       await this.client.insert({
-        table: tableName,
+        table: 'protocol_events_distributed',
         values: [insertData],
         format: 'JSONEachRow'
       });
@@ -336,10 +322,9 @@ export class ClickHouseService {
       };
 
       // Insert the factory event data
-      // Use distributed table for cluster, regular table for single instance
-      const tableName = this.config.isCluster ? 'protocol_events_distributed' : 'protocol_events';
+      // Use distributed table for cluster operations
       await this.client.insert({
-        table: tableName,
+        table: 'protocol_events_distributed',
         values: [insertData],
         format: 'JSONEachRow'
       });
@@ -409,9 +394,8 @@ export class ClickHouseService {
   /**
    * Gets replication status for ClickHouse cluster
    * 
-   * For cluster deployments, this queries the system.replicas table to get
-   * detailed replication status. For single instances or cloud deployments,
-   * this returns a simplified status.
+   * Queries the system.replicas table to get detailed replication status
+   * for all nodes in the cluster.
    * 
    * @returns Promise<any> - Replication status information
    * @throws Error if query fails or not connected to ClickHouse
@@ -422,45 +406,27 @@ export class ClickHouseService {
     }
 
     try {
-      if (this.config.isCluster) {
-        // For cluster deployments, get actual replication status
-        const result = await this.client.query({
-          query: `
-            SELECT 
-              replica_name,
-              is_leader,
-              is_readonly,
-              absolute_delay,
-              queue_size,
-              inserts_in_queue,
-              merges_in_queue,
-              log_max_index,
-              log_pointer,
-              total_replicas,
-              active_replicas
-            FROM system.replicas
-            WHERE table = 'protocol_events'
-          `
-        });
-        const data = await result.json();
-        return data.data;
-      } else {
-        // For single instances or cloud, return simplified status
-        const result = await this.client.query({
-          query: `
-            SELECT 
-              'single' as replica_name,
-              true as is_leader,
-              false as is_readonly,
-              0 as absolute_delay,
-              0 as queue_size,
-              0 as inserts_in_queue,
-              0 as merges_in_queue
-          `
-        });
-        const data = await result.json();
-        return data.data;
-      }
+      // Get actual replication status for cluster
+      const result = await this.client.query({
+        query: `
+          SELECT 
+            replica_name,
+            is_leader,
+            is_readonly,
+            absolute_delay,
+            queue_size,
+            inserts_in_queue,
+            merges_in_queue,
+            log_max_index,
+            log_pointer,
+            total_replicas,
+            active_replicas
+          FROM system.replicas
+          WHERE table = 'protocol_events'
+        `
+      });
+      const data = await result.json();
+      return data.data;
     } catch (error) {
       console.error('❌ Failed to get replication status:', error);
       throw error;
@@ -468,11 +434,10 @@ export class ClickHouseService {
   }
 
   /**
-   * Verifies data consistency across ClickHouse replicas
+   * Verifies data consistency across ClickHouse cluster replicas
    * 
-   * For cluster deployments, this compares event counts across all replicas
-   * to ensure data consistency. For single instances or cloud deployments,
-   * this performs a simple consistency check.
+   * Compares event counts across all replicas in the cluster
+   * to ensure data consistency.
    * 
    * @returns Promise<{ replica: string; count: number }[]> - Consistency check results
    * @throws Error if query fails or not connected to ClickHouse
@@ -483,33 +448,19 @@ export class ClickHouseService {
     }
 
     try {
-      if (this.config.isCluster) {
-        // For cluster deployments, check consistency across all replicas
-        const result = await this.client.query({
-          query: `
-            SELECT 
-              replica_name as replica,
-              count() as count
-            FROM protocol_events
-            GROUP BY replica_name
-            ORDER BY replica_name
-          `
-        });
-        const data = await result.json();
-        return data.data as { replica: string; count: number }[];
-      } else {
-        // For single instances or cloud, return simple consistency check
-        const result = await this.client.query({
-          query: `
-            SELECT 
-              'single' as replica,
-              count() as count
-            FROM protocol_events
-          `
-        });
-        const data = await result.json();
-        return data.data as { replica: string; count: number }[];
-      }
+      // Check consistency across all replicas in cluster
+      const result = await this.client.query({
+        query: `
+          SELECT 
+            replica_name as replica,
+            count() as count
+          FROM protocol_events
+          GROUP BY replica_name
+          ORDER BY replica_name
+        `
+      });
+      const data = await result.json();
+      return data.data as { replica: string; count: number }[];
     } catch (error) {
       console.error('❌ Failed to verify data consistency:', error);
       throw error;
@@ -687,8 +638,8 @@ export class ClickHouseService {
   /**
    * Gets detailed replication queue status for cluster
    * 
-   * For cluster deployments, this provides detailed information about
-   * replication queues, including pending operations and delays.
+   * Provides detailed information about replication queues,
+   * including pending operations and delays.
    * 
    * @returns Promise<any> - Replication queue status
    * @throws Error if query fails or not connected to ClickHouse
@@ -699,35 +650,31 @@ export class ClickHouseService {
     }
 
     try {
-      if (this.config.isCluster) {
-        const result = await this.client.query({
-          query: `
-            SELECT 
-              replica_name,
-              position,
-              node_name,
-              type,
-              source_replica,
-              new_part_name,
-              parts_to_merge,
-              is_detach,
-              is_attach,
-              create_time,
-              required_quorum,
-              source_replica_num,
-              new_part_name_prefix,
-              is_covering,
-              is_covering_detached
-            FROM system.replication_queue
-            WHERE table = 'protocol_events'
-            ORDER BY position
-          `
-        });
-        const data = await result.json();
-        return data.data;
-      } else {
-        return [];
-      }
+      const result = await this.client.query({
+        query: `
+          SELECT 
+            replica_name,
+            position,
+            node_name,
+            type,
+            source_replica,
+            new_part_name,
+            parts_to_merge,
+            is_detach,
+            is_attach,
+            create_time,
+            required_quorum,
+            source_replica_num,
+            new_part_name_prefix,
+            is_covering,
+            is_covering_detached
+          FROM system.replication_queue
+          WHERE table = 'protocol_events'
+          ORDER BY position
+        `
+      });
+      const data = await result.json();
+      return data.data;
     } catch (error) {
       console.error('❌ Failed to get replication queue status:', error);
       throw error;
@@ -737,8 +684,8 @@ export class ClickHouseService {
   /**
    * Gets ZooKeeper/Keeper status for cluster coordination
    * 
-   * For cluster deployments, this checks the status of the coordination
-   * service (ClickHouse Keeper) that manages cluster metadata.
+   * Checks the status of the coordination service (ClickHouse Keeper)
+   * that manages cluster metadata.
    * 
    * @returns Promise<any> - Keeper status information
    * @throws Error if query fails or not connected to ClickHouse
@@ -749,31 +696,27 @@ export class ClickHouseService {
     }
 
     try {
-      if (this.config.isCluster) {
-        const result = await this.client.query({
-          query: `
-            SELECT 
-              name,
-              value,
-              numChildren,
-              ctime,
-              mtime,
-              version,
-              cversion,
-              aversion,
-              ephemeralOwner,
-              dataLength,
-              pzxid
-            FROM system.zookeeper
-            WHERE path = '/'
-            LIMIT 10
-          `
-        });
-        const data = await result.json();
-        return data.data;
-      } else {
-        return [];
-      }
+      const result = await this.client.query({
+        query: `
+          SELECT 
+            name,
+            value,
+            numChildren,
+            ctime,
+            mtime,
+            version,
+            cversion,
+            aversion,
+            ephemeralOwner,
+            dataLength,
+            pzxid
+          FROM system.zookeeper
+          WHERE path = '/'
+          LIMIT 10
+        `
+      });
+      const data = await result.json();
+      return data.data;
     } catch (error) {
       console.error('❌ Failed to get keeper status:', error);
       throw error;
@@ -783,8 +726,8 @@ export class ClickHouseService {
   /**
    * Performs cluster-wide data consistency check
    * 
-   * For cluster deployments, this performs a comprehensive consistency
-   * check across all replicas by comparing row counts and checksums.
+   * Performs a comprehensive consistency check across all replicas
+   * by comparing row counts and checksums.
    * 
    * @returns Promise<any> - Comprehensive consistency check results
    * @throws Error if query fails or not connected to ClickHouse
@@ -795,39 +738,22 @@ export class ClickHouseService {
     }
 
     try {
-      if (this.config.isCluster) {
-        const result = await this.client.query({
-          query: `
-            SELECT 
-              'protocol_events' as table_name,
-              count() as total_rows,
-              uniq(id) as unique_ids,
-              min(timestamp) as min_timestamp,
-              max(timestamp) as max_timestamp,
-              countIf(protocol = 'uniswap-v2') as uniswap_v2_events,
-              countIf(protocol = 'uniswap-v3') as uniswap_v3_events,
-              countIf(protocol = 'pancakeswap-v2') as pancakeswap_v2_events
-            FROM protocol_events
-          `
-        });
-        const data = await result.json();
-        return data.data;
-      } else {
-        // For single instances, return basic consistency check
-        const result = await this.client.query({
-          query: `
-            SELECT 
-              'protocol_events' as table_name,
-              count() as total_rows,
-              uniq(id) as unique_ids,
-              min(timestamp) as min_timestamp,
-              max(timestamp) as max_timestamp
-            FROM protocol_events
-          `
-        });
-        const data = await result.json();
-        return data.data;
-      }
+      const result = await this.client.query({
+        query: `
+          SELECT 
+            'protocol_events' as table_name,
+            count() as total_rows,
+            uniq(id) as unique_ids,
+            min(timestamp) as min_timestamp,
+            max(timestamp) as max_timestamp,
+            countIf(protocol = 'uniswap-v2') as uniswap_v2_events,
+            countIf(protocol = 'uniswap-v3') as uniswap_v3_events,
+            countIf(protocol = 'pancakeswap-v2') as pancakeswap_v2_events
+          FROM protocol_events
+        `
+      });
+      const data = await result.json();
+      return data.data;
     } catch (error) {
       console.error('❌ Failed to perform cluster consistency check:', error);
       throw error;
