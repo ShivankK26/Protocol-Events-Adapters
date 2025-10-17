@@ -1,98 +1,224 @@
 <?xml version="1.0"?>
+<!--
+WHAT IS THIS FILE?
+==================
+This configures the FIRST replica in our 3-replica ClickHouse cluster:
+- Server Name: clickhouse-1
+- HTTP Port: 8123 (web interface)
+- TCP Port: 9000 (native protocol)
+- Interserver Port: 9009 (communication with other nodes)
+
+CLUSTER ROLE:
+============
+This server is:
+- First replica in the cluster
+- Shard 01, Replica 01
+- Part of the 'protocol_cluster' cluster
+- Connected to ClickHouse Keeper for coordination
+
+CLUSTER ARCHITECTURE:
+====================
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│  ClickHouse-1   │    │  ClickHouse-2   │    │  ClickHouse-3   │
+│  Port: 8123     │    │  Port: 8124     │    │  Port: 8125     │
+│  TCP: 9000      │    │  TCP: 9001      │    │  TCP: 9002      │
+│  THIS FILE!     │    │  server-2.xml   │    │  server-3.xml   │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+         │                       │                       │
+         └───────────────────────┼───────────────────────┘
+                                 │
+                    ┌─────────────────┐
+                    │ ClickHouse      │
+                    │ Keeper          │
+                    │ Port: 2181      │
+                    └─────────────────┘
+
+REPLICATION CONCEPT:
+===================
+- Each server contains the SAME data (replicated)
+- Data inserted into ANY server gets copied to ALL servers
+- If one server fails, others continue serving data
+- Replication is handled by ReplicatedMergeTree engine
+- ClickHouse Keeper coordinates the replication process
+-->
 <clickhouse>
-    <!-- Network configuration -->
-    <listen_host>0.0.0.0</listen_host>
-    <http_port>8123</http_port>
-    <tcp_port>9000</tcp_port>
-    <interserver_http_port>9009</interserver_http_port>
+    <!-- 🌐 NETWORK CONFIGURATION
+    =============================
+    These settings define how this ClickHouse server accepts connections:
+    - listen_host: Accept connections from any IP (0.0.0.0)
+    - http_port: Web interface and HTTP API (8123)
+    - tcp_port: Native ClickHouse protocol (9000)
+    - interserver_http_port: Communication with other ClickHouse nodes (9009)
+    -->
+    <listen_host>0.0.0.0</listen_host>  <!-- Accept connections from any IP -->
+    <http_port>8123</http_port>         <!-- HTTP port for web interface -->
+    <tcp_port>9000</tcp_port>           <!-- TCP port for native protocol -->
+    <interserver_http_port>9009</interserver_http_port>  <!-- Inter-node communication -->
 
-    <!-- Data directory -->
-    <path>/var/lib/clickhouse/</path>
-    <tmp_path>/var/lib/clickhouse/tmp/</tmp_path>
-    <user_files_path>/var/lib/clickhouse/user_files/</user_files_path>
-    <format_schema_path>/var/lib/clickhouse/format_schemas/</format_schema_path>
+    <!-- 📁 DATA DIRECTORY CONFIGURATION
+    ====================================
+    These paths define where this ClickHouse server stores its data:
+    - path: Main data directory for tables and data
+    - tmp_path: Temporary files during operations
+    - user_files_path: User-uploaded files
+    - format_schema_path: Schema definitions for data formats
+    -->
+    <path>/var/lib/clickhouse/</path>                    <!-- Main data directory -->
+    <tmp_path>/var/lib/clickhouse/tmp/</tmp_path>        <!-- Temporary files -->
+    <user_files_path>/var/lib/clickhouse/user_files/</user_files_path>  <!-- User files -->
+    <format_schema_path>/var/lib/clickhouse/format_schemas/</format_schema_path>  <!-- Schemas -->
 
-    <!-- Logging -->
+    <!-- 📝 LOGGING CONFIGURATION
+    =============================
+    Logging settings for monitoring and debugging:
+    - level: Log verbosity (information, debug, trace, etc.)
+    - log: Main log file path
+    - errorlog: Error log file path
+    - size: Maximum log file size before rotation
+    - count: Number of log files to keep
+    -->
     <logger>
-        <level>information</level>
-        <log>/var/log/clickhouse-server/clickhouse-server.log</log>
-        <errorlog>/var/log/clickhouse-server/clickhouse-server.err.log</errorlog>
-        <size>1000M</size>
-        <count>10</count>
+        <level>information</level>  <!-- Log level: information, debug, trace -->
+        <log>/var/log/clickhouse-server/clickhouse-server.log</log>      <!-- Main log -->
+        <errorlog>/var/log/clickhouse-server/clickhouse-server.err.log</errorlog>  <!-- Error log -->
+        <size>1000M</size>          <!-- Max log file size: 1GB -->
+        <count>10</count>           <!-- Keep 10 log files -->
     </logger>
 
-    <!-- Cluster configuration -->
+    <!-- 🏗️ CLUSTER CONFIGURATION
+    =============================
+    This defines the cluster topology and how nodes communicate:
+    - protocol_cluster: Name of our cluster
+    - shard: Each shard contains one replica (we have 3 shards)
+    - internal_replication: true = use ReplicatedMergeTree for replication
+    - replica: Each replica is a separate ClickHouse server
+    
+    CLUSTER TOPOLOGY:
+    ================
+    Shard 1: clickhouse-1 (this server) - Port 9000
+    Shard 2: clickhouse-2 - Port 9001  
+    Shard 3: clickhouse-3 - Port 9002
+    
+    Each shard contains the SAME data (replicated across all shards)
+    -->
     <remote_servers>
-        <protocol_cluster>
-            <shard>
-                <internal_replication>true</internal_replication>
+        <protocol_cluster>  <!-- Cluster name used in SQL queries -->
+            <shard>  <!-- Shard 1: First replica -->
+                <internal_replication>true</internal_replication>  <!-- Enable replication -->
                 <replica>
-                    <host>clickhouse-1</host>
-                    <port>9000</port>
+                    <host>clickhouse-1</host>  <!-- This server -->
+                    <port>9000</port>          <!-- TCP port for this server -->
                 </replica>
             </shard>
-            <shard>
-                <internal_replication>true</internal_replication>
+            <shard>  <!-- Shard 2: Second replica -->
+                <internal_replication>true</internal_replication>  <!-- Enable replication -->
                 <replica>
-                    <host>clickhouse-2</host>
-                    <port>9001</port>
+                    <host>clickhouse-2</host>  <!-- Second server -->
+                    <port>9001</port>          <!-- TCP port for second server -->
                 </replica>
             </shard>
-            <shard>
-                <internal_replication>true</internal_replication>
+            <shard>  <!-- Shard 3: Third replica -->
+                <internal_replication>true</internal_replication>  <!-- Enable replication -->
                 <replica>
-                    <host>clickhouse-3</host>
-                    <port>9002</port>
+                    <host>clickhouse-3</host>  <!-- Third server -->
+                    <port>9002</port>          <!-- TCP port for third server -->
                 </replica>
             </shard>
         </protocol_cluster>
     </remote_servers>
 
-    <!-- ZooKeeper configuration for ClickHouse Keeper -->
+    <!-- 🔐 ZOOKEEPER CONFIGURATION (ClickHouse Keeper)
+    ===================================================
+    This connects this server to ClickHouse Keeper for coordination:
+    - host: clickhouse-keeper (container hostname)
+    - port: 2181 (Keeper coordination port)
+    
+    KEEPER FUNCTIONS:
+    ================
+    - Manages cluster metadata and configuration
+    - Coordinates replication between nodes
+    - Handles leader election and failover
+    - Stores replication logs and metadata
+    - Provides distributed consensus
+    -->
     <zookeeper>
         <node index="1">
-            <host>clickhouse-keeper</host>
-            <port>2181</port>
+            <host>clickhouse-keeper</host>  <!-- Keeper container hostname -->
+            <port>2181</port>               <!-- Keeper coordination port -->
         </node>
     </zookeeper>
 
-    <!-- Macros for this replica -->
+    <!-- 🏷️ MACROS FOR THIS REPLICA
+    ===============================
+    Macros define unique identifiers for this replica:
+    - shard: 01 (first shard)
+    - replica: 01 (first replica in the shard)
+    
+    These macros are used in ReplicatedMergeTree table definitions:
+    CREATE TABLE events (
+        ...
+    ) ENGINE = ReplicatedMergeTree('/clickhouse/tables/{shard}/events', '{replica}')
+    
+    This creates unique paths in ClickHouse Keeper for each replica.
+    -->
     <macros>
-        <shard>01</shard>
-        <replica>01</replica>
+        <shard>01</shard>      <!-- Shard identifier: 01 -->
+        <replica>01</replica>  <!-- Replica identifier: 01 -->
     </macros>
 
-    <!-- Users configuration -->
+    <!-- 👤 USERS CONFIGURATION
+    ===========================
+    Defines database users and their permissions:
+    - default: Default user (no password for development)
+    - networks: Allowed IP ranges (::/0 = all IPs)
+    - profile: User profile with settings
+    - quota: Resource limits for the user
+    -->
     <users>
         <default>
-            <password></password>
+            <password></password>        <!-- No password (development only!) -->
             <networks>
-                <ip>::/0</ip>
+                <ip>::/0</ip>            <!-- Allow connections from any IP -->
             </networks>
-            <profile>default</profile>
-            <quota>default</quota>
+            <profile>default</profile>   <!-- Use default profile settings -->
+            <quota>default</quota>       <!-- Use default quota limits -->
         </default>
     </users>
 
-    <!-- Profiles -->
+    <!-- ⚙️ PROFILES CONFIGURATION
+    =============================
+    User profiles define default settings and limits:
+    - max_memory_usage: Maximum memory per query (10GB)
+    - use_uncompressed_cache: Whether to use cache (disabled)
+    - load_balancing: How to distribute queries (random)
+    -->
     <profiles>
         <default>
-            <max_memory_usage>10000000000</max_memory_usage>
-            <use_uncompressed_cache>0</use_uncompressed_cache>
-            <load_balancing>random</load_balancing>
+            <max_memory_usage>10000000000</max_memory_usage>  <!-- 10GB max memory -->
+            <use_uncompressed_cache>0</use_uncompressed_cache>  <!-- Disable cache -->
+            <load_balancing>random</load_balancing>            <!-- Random load balancing -->
         </default>
     </profiles>
 
-    <!-- Quotas -->
+    <!-- 📊 QUOTAS CONFIGURATION
+    ============================
+    Resource limits and usage tracking:
+    - duration: Time period for quota (3600 seconds = 1 hour)
+    - queries: Max queries per period (0 = unlimited)
+    - errors: Max errors per period (0 = unlimited)
+    - result_rows: Max result rows per period (0 = unlimited)
+    - read_rows: Max rows read per period (0 = unlimited)
+    - execution_time: Max execution time per period (0 = unlimited)
+    -->
     <quotas>
         <default>
             <interval>
-                <duration>3600</duration>
-                <queries>0</queries>
-                <errors>0</errors>
-                <result_rows>0</result_rows>
-                <read_rows>0</read_rows>
-                <execution_time>0</execution_time>
+                <duration>3600</duration>        <!-- 1 hour quota period -->
+                <queries>0</queries>             <!-- Unlimited queries -->
+                <errors>0</errors>               <!-- Unlimited errors -->
+                <result_rows>0</result_rows>     <!-- Unlimited result rows -->
+                <read_rows>0</read_rows>         <!-- Unlimited read rows -->
+                <execution_time>0</execution_time>  <!-- Unlimited execution time -->
             </interval>
         </default>
     </quotas>

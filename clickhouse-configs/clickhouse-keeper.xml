@@ -1,69 +1,148 @@
 <?xml version="1.0"?>
+<!--
+
+CLUSTER ARCHITECTURE:
+====================
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│  ClickHouse-1   │    │  ClickHouse-2   │    │  ClickHouse-3   │
+│  Port: 8123     │    │  Port: 8124     │    │  Port: 8125     │
+│  TCP: 9000      │    │  TCP: 9001      │    │  TCP: 9002      │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+         │                       │                       │
+         └───────────────────────┼───────────────────────┘
+                                 │
+                    ┌─────────────────┐
+                    │ ClickHouse      │
+                    │ Keeper          │
+                    │ Port: 2181      │ ← THIS FILE CONFIGURES THIS
+                    │ HTTP: 8126      │
+                    │ TCP: 9003       │
+                    └─────────────────┘
+-->
 <clickhouse>
-    <!-- Network configuration -->
-    <listen_host>0.0.0.0</listen_host>
-    <http_port>8126</http_port>
-    <tcp_port>9003</tcp_port>
+    <!-- 🌐 NETWORK CONFIGURATION
+    =============================
+    These settings define how ClickHouse Keeper accepts connections:
+    - listen_host: Accept connections from any IP (0.0.0.0)
+    - http_port: Web interface and HTTP API (8126)
+    - tcp_port: Native ClickHouse protocol (9003)
+    -->
+    <listen_host>0.0.0.0</listen_host>  <!-- Accept connections from any IP -->
+    <http_port>8126</http_port>         <!-- HTTP port for web interface -->
+    <tcp_port>9003</tcp_port>           <!-- TCP port for native protocol -->
 
-    <!-- Data directory -->
-    <path>/var/lib/clickhouse/</path>
-    <tmp_path>/var/lib/clickhouse/tmp/</tmp_path>
-    <user_files_path>/var/lib/clickhouse/user_files/</user_files_path>
-    <format_schema_path>/var/lib/clickhouse/format_schemas/</format_schema_path>
+    <!-- 📁 DATA DIRECTORY CONFIGURATION
+    ====================================
+    These paths define where ClickHouse Keeper stores its data:
+    - path: Main data directory for Keeper metadata
+    - tmp_path: Temporary files during operations
+    - user_files_path: User-uploaded files
+    - format_schema_path: Schema definitions for data formats
+    -->
+    <path>/var/lib/clickhouse/</path>                    <!-- Main data directory -->
+    <tmp_path>/var/lib/clickhouse/tmp/</tmp_path>        <!-- Temporary files -->
+    <user_files_path>/var/lib/clickhouse/user_files/</user_files_path>  <!-- User files -->
+    <format_schema_path>/var/lib/clickhouse/format_schemas/</format_schema_path>  <!-- Schemas -->
 
-    <!-- Logging -->
+    <!-- 📝 LOGGING CONFIGURATION
+    =============================
+    Logging settings for monitoring and debugging:
+    - level: Log verbosity (information, debug, trace, etc.)
+    - log: Main log file path
+    - errorlog: Error log file path
+    - size: Maximum log file size before rotation
+    - count: Number of log files to keep
+    -->
     <logger>
-        <level>information</level>
-        <log>/var/log/clickhouse-server/clickhouse-server.log</log>
-        <errorlog>/var/log/clickhouse-server/clickhouse-server.err.log</errorlog>
-        <size>1000M</size>
-        <count>10</count>
+        <level>information</level>  <!-- Log level: information, debug, trace -->
+        <log>/var/log/clickhouse-server/clickhouse-server.log</log>      <!-- Main log -->
+        <errorlog>/var/log/clickhouse-server/clickhouse-server.err.log</errorlog>  <!-- Error log -->
+        <size>1000M</size>          <!-- Max log file size: 1GB -->
+        <count>10</count>           <!-- Keep 10 log files -->
     </logger>
 
-    <!-- ClickHouse Keeper configuration -->
+    <!-- 🔐 CLICKHOUSE KEEPER CONFIGURATION
+    =======================================
+    This is the core Keeper configuration that makes it work:
+    - tcp_port: Port for Keeper coordination (2181 - same as ZooKeeper)
+    - server_id: Unique identifier for this Keeper instance
+    - raft_configuration: Raft consensus protocol configuration
+    - hostname: Container hostname for internal communication
+    - port: Internal Raft communication port (9234)
+    
+    RAFT CONSENSUS:
+    ==============
+    Raft is a consensus algorithm that ensures:
+    - All nodes agree on cluster state
+    - Leader election when nodes fail
+    - Data consistency across the cluster
+    - Fault tolerance and high availability
+    -->
     <keeper_server>
-        <tcp_port>2181</tcp_port>
-        <server_id>1</server_id>
-        <raft_configuration>
+        <tcp_port>2181</tcp_port>        <!-- Keeper coordination port (like ZooKeeper) -->
+        <server_id>1</server_id>         <!-- Unique ID for this Keeper instance -->
+        <raft_configuration>             <!-- Raft consensus protocol config -->
             <server>
-                <id>1</id>
-                <hostname>clickhouse-keeper</hostname>
-                <port>9234</port>
+                <id>1</id>               <!-- Server ID in Raft cluster -->
+                <hostname>clickhouse-keeper</hostname>  <!-- Container hostname -->
+                <port>9234</port>        <!-- Internal Raft communication port -->
             </server>
         </raft_configuration>
     </keeper_server>
 
-    <!-- Users configuration -->
+    <!-- 👤 USERS CONFIGURATION
+    ===========================
+    Defines database users and their permissions:
+    - default: Default user (no password for development)
+    - networks: Allowed IP ranges (::/0 = all IPs)
+    - profile: User profile with settings
+    - quota: Resource limits for the user
+    -->
     <users>
         <default>
-            <password></password>
+            <password></password>        <!-- No password (development only!) -->
             <networks>
-                <ip>::/0</ip>
+                <ip>::/0</ip>            <!-- Allow connections from any IP -->
             </networks>
-            <profile>default</profile>
-            <quota>default</quota>
+            <profile>default</profile>   <!-- Use default profile settings -->
+            <quota>default</quota>       <!-- Use default quota limits -->
         </default>
     </users>
 
-    <!-- Profiles -->
+    <!-- ⚙️ PROFILES CONFIGURATION
+    =============================
+    User profiles define default settings and limits:
+    - max_memory_usage: Maximum memory per query (10GB)
+    - use_uncompressed_cache: Whether to use cache (disabled)
+    - load_balancing: How to distribute queries (random)
+    -->
     <profiles>
         <default>
-            <max_memory_usage>10000000000</max_memory_usage>
-            <use_uncompressed_cache>0</use_uncompressed_cache>
-            <load_balancing>random</load_balancing>
+            <max_memory_usage>10000000000</max_memory_usage>  <!-- 10GB max memory -->
+            <use_uncompressed_cache>0</use_uncompressed_cache>  <!-- Disable cache -->
+            <load_balancing>random</load_balancing>            <!-- Random load balancing -->
         </default>
     </profiles>
 
-    <!-- Quotas -->
+    <!-- 📊 QUOTAS CONFIGURATION
+    ============================
+    Resource limits and usage tracking:
+    - duration: Time period for quota (3600 seconds = 1 hour)
+    - queries: Max queries per period (0 = unlimited)
+    - errors: Max errors per period (0 = unlimited)
+    - result_rows: Max result rows per period (0 = unlimited)
+    - read_rows: Max rows read per period (0 = unlimited)
+    - execution_time: Max execution time per period (0 = unlimited)
+    -->
     <quotas>
         <default>
             <interval>
-                <duration>3600</duration>
-                <queries>0</queries>
-                <errors>0</errors>
-                <result_rows>0</result_rows>
-                <read_rows>0</read_rows>
-                <execution_time>0</execution_time>
+                <duration>3600</duration>        <!-- 1 hour quota period -->
+                <queries>0</queries>             <!-- Unlimited queries -->
+                <errors>0</errors>               <!-- Unlimited errors -->
+                <result_rows>0</result_rows>     <!-- Unlimited result rows -->
+                <read_rows>0</read_rows>         <!-- Unlimited read rows -->
+                <execution_time>0</execution_time>  <!-- Unlimited execution time -->
             </interval>
         </default>
     </quotas>

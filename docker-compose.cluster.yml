@@ -1,99 +1,276 @@
+
+# WHAT IS THIS FILE?
+# ==================
+# This Docker Compose file orchestrates a complete ClickHouse cluster with:
+# - 1 ClickHouse Keeper (coordination service)
+# - 3 ClickHouse servers (replicas for high availability)
+# - Persistent data storage (volumes)
+# - Internal networking (containers can communicate)
+# - Port mapping (expose services to host machine)
+#
+# CLUSTER ARCHITECTURE:
+# =====================
+# ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+# │  ClickHouse-1   │    │  ClickHouse-2   │    │  ClickHouse-3   │
+# │  Port: 8123     │    │  Port: 8124     │    │  Port: 8125     │
+# │  TCP: 9000      │    │  TCP: 9001      │    │  TCP: 9002      │
+# └─────────────────┘    └─────────────────┘    └─────────────────┘
+#          │                       │                       │
+#          └───────────────────────┼───────────────────────┘
+#                                  │
+#                     ┌─────────────────┐
+#                     │ ClickHouse      │
+#                     │ Keeper          │
+#                     │ Port: 2181      │
+#                     │ HTTP: 8126      │
+#                     └─────────────────┘
+#
+# DOCKER CONCEPTS USED:
+# =====================
+# - Services: Each ClickHouse server is a service
+# - Images: clickhouse/clickhouse-server:latest (official ClickHouse image)
+# - Containers: Isolated environments for each service
+# - Volumes: Persistent storage for database data
+# - Networks: Internal communication between containers
+# - Port mapping: Expose container ports to host machine
+# - Environment variables: Configuration passed to containers
+# - Commands: How to start each service
+# - Restart policies: Automatic restart on failure
+#
+# WHY USE DOCKER COMPOSE?
+# =======================
+# - Single command deployment: `docker-compose up -d`
+# - Orchestrates multiple containers as one application
+# - Handles networking between containers automatically
+# - Manages persistent storage with volumes
+# - Easy scaling and management
+# - Reproducible deployments across environments
+
 services:
-  # ClickHouse Keeper for metadata management
+  # 🔐 CLICKHOUSE KEEPER SERVICE
+  # ============================
+  # ClickHouse Keeper is the coordination service that manages cluster operations:
+  # - Manages cluster metadata and configuration
+  # - Coordinates replication between ClickHouse nodes
+  # - Handles leader election and failover
+  # - Stores replication logs and metadata
+  # - Provides distributed consensus (like Apache ZooKeeper)
   clickhouse-keeper:
-    image: clickhouse/clickhouse-server:latest
-    container_name: clickhouse-keeper
-    hostname: clickhouse-keeper
+    image: clickhouse/clickhouse-server:latest  # Official ClickHouse Docker image
+    container_name: clickhouse-keeper           # Container name for easy reference
+    hostname: clickhouse-keeper                 # Hostname for internal communication
+    
+    # 🌐 PORT MAPPING
+    # ===============
+    # Maps container ports to host ports:
+    # - 2181:2181 - Keeper coordination port (like ZooKeeper)
+    # - 8126:8126 - HTTP port for web interface
+    # - 9003:9003 - TCP port for native protocol
+    # - 9234:9234 - Internal Raft communication port
     ports:
-      - "2181:2181"
-      - "8126:8126"
-      - "9003:9003"
-      - "9234:9234"
+      - "2181:2181"  # Keeper coordination port
+      - "8126:8126"  # HTTP port for web interface
+      - "9003:9003"  # TCP port for native protocol
+      - "9234:9234"  # Internal Raft communication port
+    
+    # 💾 VOLUMES (PERSISTENT STORAGE)
+    # ===============================
+    # Volumes provide persistent storage for data:
+    # - clickhouse_keeper_data: Persistent storage for Keeper metadata
+    # - Config mount: Mounts our custom configuration file
     volumes:
-      - clickhouse_keeper_data:/var/lib/clickhouse
-      - ./clickhouse-configs/clickhouse-keeper.xml:/etc/clickhouse-server/config.xml
+      - clickhouse_keeper_data:/var/lib/clickhouse  # Persistent data storage
+      - ./clickhouse-configs/clickhouse-keeper.xml:/etc/clickhouse-server/config.xml  # Custom config
+    
+    # 🔧 ENVIRONMENT VARIABLES
+    # =========================
+    # Environment variables passed to the container:
+    # - CLICKHOUSE_DB: Default database name
+    # - CLICKHOUSE_USER: Default username
+    # - CLICKHOUSE_PASSWORD: Password (empty for development)
     environment:
-      - CLICKHOUSE_DB=default
-      - CLICKHOUSE_USER=default
-      - CLICKHOUSE_PASSWORD=
+      - CLICKHOUSE_DB=default      # Default database
+      - CLICKHOUSE_USER=default    # Default user
+      - CLICKHOUSE_PASSWORD=       # No password (development only!)
+    
+    # 🚀 STARTUP COMMAND
+    # ==================
+    # Command to start the ClickHouse server with our custom config
     command: ["clickhouse-server", "--config-file=/etc/clickhouse-server/config.xml"]
+    
+    # 🌐 NETWORK CONFIGURATION
+    # =========================
+    # Connects this service to the clickhouse-cluster network
     networks:
       - clickhouse-cluster
+    
+    # 🔄 RESTART POLICY
+    # =================
+    # Automatically restart the container if it stops (unless manually stopped)
     restart: unless-stopped
 
-  # ClickHouse Server 1
+  # 🖥️ CLICKHOUSE SERVER 1 (FIRST REPLICA)
+  # ======================================
+  # First replica in our 3-replica cluster:
+  # - Shard 01, Replica 01
+  # - HTTP Port: 8123, TCP Port: 9000
+  # - Interserver Port: 9009 (communication with other nodes)
   clickhouse-1:
-    image: clickhouse/clickhouse-server:latest
-    container_name: clickhouse-1
-    hostname: clickhouse-1
+    image: clickhouse/clickhouse-server:latest  # Official ClickHouse Docker image
+    container_name: clickhouse-1                # Container name
+    hostname: clickhouse-1                      # Hostname for internal communication
+    
+    # 🌐 PORT MAPPING
+    # ===============
+    # Maps container ports to host ports:
+    # - 8123:8123 - HTTP port for web interface
+    # - 9000:9000 - TCP port for native protocol (faster)
+    # - 9009:9009 - Interserver port (communication with other nodes)
     ports:
-      - "8123:8123"
-      - "9000:9000"
-      - "9009:9009"
+      - "8123:8123"  # HTTP port for web interface
+      - "9000:9000"  # TCP port for native protocol
+      - "9009:9009"  # Interserver communication port
+    
+    # 💾 VOLUMES (PERSISTENT STORAGE)
+    # ===============================
+    # Volumes provide persistent storage for data:
+    # - clickhouse_1_data: Persistent storage for this replica's data
+    # - Config mount: Mounts our custom configuration file
     volumes:
-      - clickhouse_1_data:/var/lib/clickhouse
-      - ./clickhouse-configs/clickhouse-server-1.xml:/etc/clickhouse-server/config.xml
+      - clickhouse_1_data:/var/lib/clickhouse  # Persistent data storage
+      - ./clickhouse-configs/clickhouse-server-1.xml:/etc/clickhouse-server/config.xml  # Custom config
+    
+    # 🔧 ENVIRONMENT VARIABLES
+    # =========================
     environment:
-      - CLICKHOUSE_DB=default
-      - CLICKHOUSE_USER=default
-      - CLICKHOUSE_PASSWORD=
+      - CLICKHOUSE_DB=default      # Default database
+      - CLICKHOUSE_USER=default    # Default user
+      - CLICKHOUSE_PASSWORD=       # No password (development only!)
+    
+    # 🚀 STARTUP COMMAND
+    # ==================
     command: ["clickhouse-server", "--config-file=/etc/clickhouse-server/config.xml"]
+    
+    # 🌐 NETWORK CONFIGURATION
+    # =========================
     networks:
       - clickhouse-cluster
+    
+    # 🔄 RESTART POLICY
+    # =================
     restart: unless-stopped
 
-  # ClickHouse Server 2
+  # 🖥️ CLICKHOUSE SERVER 2 (SECOND REPLICA)
+  # =======================================
+  # Second replica in our 3-replica cluster:
+  # - Shard 02, Replica 02
+  # - HTTP Port: 8124, TCP Port: 9001
+  # - Interserver Port: 9010
   clickhouse-2:
-    image: clickhouse/clickhouse-server:latest
-    container_name: clickhouse-2
-    hostname: clickhouse-2
+    image: clickhouse/clickhouse-server:latest  # Official ClickHouse Docker image
+    container_name: clickhouse-2                # Container name
+    hostname: clickhouse-2                      # Hostname for internal communication
+    
+    # 🌐 PORT MAPPING
+    # ===============
     ports:
-      - "8124:8124"
-      - "9001:9001"
-      - "9010:9010"
+      - "8124:8124"  # HTTP port for web interface
+      - "9001:9001"  # TCP port for native protocol
+      - "9010:9010"  # Interserver communication port
+    
+    # 💾 VOLUMES (PERSISTENT STORAGE)
+    # ===============================
     volumes:
-      - clickhouse_2_data:/var/lib/clickhouse
-      - ./clickhouse-configs/clickhouse-server-2.xml:/etc/clickhouse-server/config.xml
+      - clickhouse_2_data:/var/lib/clickhouse  # Persistent data storage
+      - ./clickhouse-configs/clickhouse-server-2.xml:/etc/clickhouse-server/config.xml  # Custom config
+    
+    # 🔧 ENVIRONMENT VARIABLES
+    # =========================
     environment:
-      - CLICKHOUSE_DB=default
-      - CLICKHOUSE_USER=default
-      - CLICKHOUSE_PASSWORD=
+      - CLICKHOUSE_DB=default      # Default database
+      - CLICKHOUSE_USER=default    # Default user
+      - CLICKHOUSE_PASSWORD=       # No password (development only!)
+    
+    # 🚀 STARTUP COMMAND
+    # ==================
     command: ["clickhouse-server", "--config-file=/etc/clickhouse-server/config.xml"]
+    
+    # 🌐 NETWORK CONFIGURATION
+    # =========================
     networks:
       - clickhouse-cluster
+    
+    # 🔄 RESTART POLICY
+    # =================
     restart: unless-stopped
 
-  # ClickHouse Server 3
+  # 🖥️ CLICKHOUSE SERVER 3 (THIRD REPLICA)
+  # ======================================
+  # Third replica in our 3-replica cluster:
+  # - Shard 03, Replica 03
+  # - HTTP Port: 8125, TCP Port: 9002
+  # - Interserver Port: 9011
   clickhouse-3:
-    image: clickhouse/clickhouse-server:latest
-    container_name: clickhouse-3
-    hostname: clickhouse-3
+    image: clickhouse/clickhouse-server:latest  # Official ClickHouse Docker image
+    container_name: clickhouse-3                # Container name
+    hostname: clickhouse-3                      # Hostname for internal communication
+    
+    # 🌐 PORT MAPPING
+    # ===============
     ports:
-      - "8125:8125"
-      - "9002:9002"
-      - "9011:9011"
+      - "8125:8125"  # HTTP port for web interface
+      - "9002:9002"  # TCP port for native protocol
+      - "9011:9011"  # Interserver communication port
+    
+    # 💾 VOLUMES (PERSISTENT STORAGE)
+    # ===============================
     volumes:
-      - clickhouse_3_data:/var/lib/clickhouse
-      - ./clickhouse-configs/clickhouse-server-3.xml:/etc/clickhouse-server/config.xml
+      - clickhouse_3_data:/var/lib/clickhouse  # Persistent data storage
+      - ./clickhouse-configs/clickhouse-server-3.xml:/etc/clickhouse-server/config.xml  # Custom config
+    
+    # 🔧 ENVIRONMENT VARIABLES
+    # =========================
     environment:
-      - CLICKHOUSE_DB=default
-      - CLICKHOUSE_USER=default
-      - CLICKHOUSE_PASSWORD=
+      - CLICKHOUSE_DB=default      # Default database
+      - CLICKHOUSE_USER=default    # Default user
+      - CLICKHOUSE_PASSWORD=       # No password (development only!)
+    
+    # 🚀 STARTUP COMMAND
+    # ==================
     command: ["clickhouse-server", "--config-file=/etc/clickhouse-server/config.xml"]
+    
+    # 🌐 NETWORK CONFIGURATION
+    # =========================
     networks:
       - clickhouse-cluster
+    
+    # 🔄 RESTART POLICY
+    # =================
     restart: unless-stopped
 
+# 💾 VOLUMES CONFIGURATION
+# ========================
+# Volumes provide persistent storage for database data:
+# - Each service gets its own volume for data isolation
+# - Data persists even when containers are stopped/restarted
+# - Local driver stores data on the host machine
 volumes:
-  clickhouse_keeper_data:
+  clickhouse_keeper_data:  # Volume for Keeper metadata and coordination data
+    driver: local          # Store data locally on host machine
+  clickhouse_1_data:       # Volume for first replica's data
     driver: local
-  clickhouse_1_data:
+  clickhouse_2_data:       # Volume for second replica's data
     driver: local
-  clickhouse_2_data:
-    driver: local
-  clickhouse_3_data:
+  clickhouse_3_data:       # Volume for third replica's data
     driver: local
 
+# 🌐 NETWORKS CONFIGURATION
+# =========================
+# Networks allow containers to communicate with each other:
+# - clickhouse-cluster: Internal network for all services
+# - Bridge driver: Default Docker network driver
+# - Containers can reach each other by hostname
+# - Isolated from other Docker networks
 networks:
-  clickhouse-cluster:
-    driver: bridge
+  clickhouse-cluster:  # Network name for internal communication
+    driver: bridge     # Bridge driver for container communication
