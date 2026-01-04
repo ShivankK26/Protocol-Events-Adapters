@@ -64,7 +64,7 @@ async function main() {
       username: process.env.CLICKHOUSE_USERNAME || 'default',
       password: process.env.CLICKHOUSE_PASSWORD || '',
       database: process.env.CLICKHOUSE_DATABASE || 'default',
-      secure: process.env.CLICKHOUSE_SECURE === 'true' || false
+      clusterName: process.env.CLICKHOUSE_CLUSTER_NAME || 'protocol_cluster'
     },
     blockchain: {
       ethereum: {

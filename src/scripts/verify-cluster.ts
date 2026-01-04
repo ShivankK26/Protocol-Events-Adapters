@@ -77,9 +77,7 @@ async function verifyCluster(): Promise<void> {
         username: 'default',
         password: '',
         database: 'default',
-        secure: false,
-        clusterName: CLUSTER_CONFIG.name,
-        isCluster: true
+        clusterName: CLUSTER_CONFIG.name
       });
 
       try {

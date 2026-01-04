@@ -180,9 +180,7 @@ async function setupClickHouseCluster(): Promise<void> {
         username: 'default',       // Default ClickHouse user
         password: '',              // No password (development setup)
         database: 'default',       // Default database
-        secure: false,             // HTTP (not HTTPS)
-        clusterName: CLUSTER_CONFIG.name,  // Tell service this is part of a cluster
-        isCluster: true            // Enable cluster-specific features
+        clusterName: CLUSTER_CONFIG.name  // Tell service this is part of a cluster
       });
 
       try {
@@ -229,9 +227,7 @@ async function setupClickHouseCluster(): Promise<void> {
       username: 'default',
       password: '',
       database: 'default',
-      secure: false,
-      clusterName: CLUSTER_CONFIG.name,       // protocol_cluster
-      isCluster: true
+      clusterName: CLUSTER_CONFIG.name       // protocol_cluster
     });
 
     // 🔄 RETRY LOGIC EXPLAINED:

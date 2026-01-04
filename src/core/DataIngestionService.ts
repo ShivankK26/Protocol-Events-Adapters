@@ -14,6 +14,7 @@ export interface DataIngestionConfig {
     username?: string;     // Database username
     password?: string;     // Database password
     database?: string;     // Database name
+    clusterName: string;   // ClickHouse cluster name
   };
   blockchain: {
     ethereum: {
