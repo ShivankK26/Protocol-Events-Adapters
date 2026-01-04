@@ -79,7 +79,7 @@ async function verifyCluster(): Promise<void> {
         database: 'default',
         clusterName: CLUSTER_CONFIG.name
       });
-
+//test
       try {
         await service.connect();
         console.log(`   ✅ ${replica.name} - Connected successfully`);
